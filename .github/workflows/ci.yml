@@ -23,13 +23,13 @@ jobs:
           - os: macos-latest
             ripgrep: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install ripgrep
         if: matrix.ripgrep
@@ -57,6 +57,6 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: ShellCheck
         run: shellcheck -S warning install.sh skills/backend-security-audit/scripts/*.sh tests/*.sh
