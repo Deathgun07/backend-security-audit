@@ -1,42 +1,108 @@
+<div align="center">
+
 # backend-security-audit
 
-Skill pour assistants IA de code ([Claude Code](https://claude.com/claude-code), Cursor, Codex, Gemini CLI, GitHub Copilot, Windsurf, Kiro…) qui audite la sécurité backend d'un projet **en lecture seule** et produit un rapport `SECURITY_AUDIT.md` : score /100, failles classées par sévérité et catégorie OWASP, preuve `fichier:ligne` pour chacune, correctif sous forme de diff.
+**A read-only backend security audit skill for AI coding assistants.**
+Evidence for every finding, fixes as diffs, a prioritized report: in minutes, without leaving your editor.
 
-Stacks couverts :
-- **Bases de données / BaaS** : Supabase (Postgres + RLS), Firebase (Firestore, Realtime Database, Storage, Cloud Functions), PocketBase, MySQL / MariaDB
-- **Backends** : PHP natif, Laravel, Node.js (Express, Fastify, Koa, Hono, NestJS), Next.js, Flask, FastAPI, Django, Go (net/http, Gin, Echo, Fiber, Chi)
-- **Contrôles communs** : secrets, `.env` commités, historique git, dépendances, rate limiting
+**English** · [Français](README.fr.md) · [Español](README.es.md) · [Português (BR)](README.pt-BR.md) · [简体中文](README.zh-CN.md)
 
-> 📄 Exemple de rapport généré : [exemples/SECURITY_AUDIT.md](exemples/SECURITY_AUDIT.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Assistants](https://img.shields.io/badge/assistants-20-informational)
+![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
-## Ce que fait le skill
+</div>
 
-1. Détecte le stack (`package.json`, `composer.json`, `requirements.txt`, `supabase/`, `pb_migrations/`…)
-2. Charge **uniquement** les checklists correspondantes (un projet Laravel + MySQL ne charge que `commun`, `php-mysql`, `laravel` et `mysql`)
-3. Lance les scripts de détection (secrets, motifs dangereux par langage)
-4. Relit à la main les fichiers sensibles : auth, routes, server actions, middleware, requêtes SQL, upload, policies RLS, API rules
-5. Écrit `SECURITY_AUDIT.md` à la racine du projet audité
+Works with **Claude Code, Cursor, Codex CLI, Gemini CLI, GitHub Copilot, Windsurf, Kiro** and 13 other assistants. Ask *"audit the security of this project"* and you get a `SECURITY_AUDIT.md` with a score out of 100, findings ranked by severity and OWASP category, a `file:line` proof for each one, and a ready-to-apply fix.
 
-Règles appliquées par le skill :
-- **ne modifie jamais le code audité** ; les correctifs sont proposés en diff ;
-- **pas de faille sans preuve** (fichier, ligne, extrait relu) ;
-- chaque faille est marquée **Confirmé** ou **À vérifier manuellement** (avec la vérification à faire) ;
-- secrets masqués dans le rapport ;
-- **aucune action offensive** : uniquement le code local et, si vous le fournissez, votre propre base de données.
+> 📄 Sample report: [exemples/SECURITY_AUDIT.md](exemples/SECURITY_AUDIT.md) (in French; reports are written in your language)
+
+## What it brings you
+
+- **Catches what generic scanners miss.** Supabase RLS policies, Firebase Security Rules, PocketBase API rules, MySQL accounts, Next.js server actions: platform-specific holes where most real-world data leaks come from.
+- **No hallucinated vulnerabilities.** Every finding cites `file:line` and an exact code excerpt the AI re-read. Each one is marked **Confirmed** or **To verify manually**, with what to check and how.
+- **Fixes, not just warnings.** Each finding comes with a minimal diff and, when needed, the out-of-code action: rotate a key, apply a migration, change a setting.
+- **Clear priorities.** A score out of 100, counts per severity, a summary table and a **top 5** to fix first, with an effort estimate.
+- **Safe by design.** Strictly read-only: the audited code is never modified, nothing is sent to third-party systems, secrets are masked in the report. The database scans run only on *your* database, with your consent.
+- **Finds leaked secrets.** Committed `.env` files, API keys, JWTs, private keys, Firebase service accounts, and secrets still sitting in your **git history**.
+- **Audits your real database, not only migrations.** `scan_rls.sql` (Postgres/Supabase) and `scan_mysql.sql` (MySQL/MariaDB) list tables without RLS, permissive policies, exposed RPCs, passwordless accounts, remote root, dangerous grants.
+- **Teaches as it goes.** 12 checklists with *vulnerable vs. fixed* code for each issue: useful to learn, to train a team or to teach.
+- **Usable without AI.** The detection scripts are plain bash: run them in CI or as a pre-commit hook.
+- **Free and open source** (MIT), no account, no external service, works offline once installed.
+
+**Who is it for?** Solo developers and "vibe coders" before going live · freelancers delivering to a client · teams before a release · students and teachers · anyone who inherited a codebase and wants to know where the holes are.
+
+## Supported stacks
+
+| Type | Stacks |
+|---|---|
+| Databases / BaaS | Supabase (Postgres + RLS), Firebase (Firestore, Realtime Database, Storage, Cloud Functions), PocketBase, MySQL / MariaDB |
+| Backends | plain PHP, Laravel, Node.js (Express, Fastify, Koa, Hono, NestJS), Next.js, Flask, FastAPI, Django, Go (net/http, Gin, Echo, Fiber, Chi) |
+| Everywhere | committed secrets and `.env`, git history, vulnerable dependencies (`bun audit`, `npm audit`, `composer audit`, `pip-audit`, `govulncheck`), missing rate limiting |
+
+The stack is detected automatically and **only the relevant checklists are loaded** (a Laravel + MySQL project loads `commun`, `php-mysql`, `laravel` and `mysql`).
+
+<details>
+<summary><b>What exactly is checked</b></summary>
+
+| Stack | Key checks |
+|---|---|
+| Supabase | tables without RLS, `USING (true)`, `anon` writes, `SECURITY DEFINER` without `search_path`, views without `security_invoker`, public buckets, exposed RPCs, `service_role` key on the client, user-editable `role`/`is_admin` columns, `user_metadata` in policies |
+| Firebase | `if true` / unconditional rules, test-mode date rules, `request.auth != null` alone, editable role fields, open Realtime Database, Storage rules, unauthenticated Cloud Functions, committed service account |
+| PocketBase | empty API rules (public), overly broad `@request.auth.id != ""` rules, exposed sensitive fields, injectable filters, hooks without auth |
+| MySQL / MariaDB | passwordless accounts, remote root, `GRANT ALL ON *.*`, published port 3306, `local_infile`, MD5 passwords in DB, dynamic SQL in procedures, exposed phpMyAdmin/Adminer, outdated versions |
+| Next.js | server actions and API routes without auth, secrets in `NEXT_PUBLIC_*`, bypassable middleware, IDOR, missing validation, security headers, SSRF, XSS, unsigned webhooks |
+| Node / Express | routes without auth, SQL and NoSQL injection, mass assignment, JWT misuse, CORS, path traversal, prototype pollution, unsafe deserialization |
+| PHP | SQL injection, XSS, CSRF, sessions, file upload, `include`/`require` with user input, md5/sha1 passwords, hardcoded credentials, `display_errors` |
+| Laravel | `APP_DEBUG`, committed `APP_KEY`, `*Raw` queries, mass assignment, policies, `{!! !!}`, CSRF exclusions, uploads |
+| Flask / FastAPI | `debug=True`, `SECRET_KEY`, f-string SQL, SSTI, pickle/yaml, CORS `*`, auth dependencies, unverified JWT, Pydantic models |
+| Django | `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `raw()`/`extra()`, IDOR, `fields = "__all__"`, `AllowAny`, `csrf_exempt`, `mark_safe`, weak hashers |
+| Go | `fmt.Sprintf` SQL, middleware missing `return`/`Abort`, JWT, `exec.Command("sh")`, path traversal, SSRF, TLS, server timeouts, CORS |
+
+</details>
 
 ## Installation
 
-### Avec la CLI (tous les assistants IA)
+Pick your assistant with `--ai` (or `--ai all`). Without `--ai`, the installer detects the assistants already used in the project.
 
-Une seule commande, sans installation préalable (Node ≥ 18) :
-
+**npm / Node ≥ 18**
 ```bash
 npx github:Deathgun07/backend-security-audit init --ai claude
 ```
 
-Remplacez `claude` par votre assistant :
+**Bun**
+```bash
+bunx github:Deathgun07/backend-security-audit init --ai claude
+```
 
-| `--ai` | Assistant | Dossier créé |
+**pnpm**
+```bash
+pnpm dlx github:Deathgun07/backend-security-audit init --ai claude
+```
+
+**Yarn (Berry)**
+```bash
+yarn dlx -p backend-security-audit@github:Deathgun07/backend-security-audit backend-security-audit init --ai claude
+```
+
+**curl (no Node needed: bash + curl or wget)**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Deathgun07/backend-security-audit/main/install.sh | bash -s -- --ai claude
+```
+
+**Claude Code plugin manager**
+```
+/plugin marketplace add Deathgun07/backend-security-audit
+/plugin install backend-security-audit@backend-security-audit
+```
+
+**git clone**
+```bash
+git clone https://github.com/Deathgun07/backend-security-audit.git
+./backend-security-audit/install.sh --ai claude
+```
+
+| `--ai` | Assistant | Installed in |
 |---|---|---|
 | `claude` | Claude Code | `.claude/skills/backend-security-audit/` |
 | `cursor` | Cursor | `.cursor/skills/backend-security-audit/` |
@@ -57,126 +123,77 @@ Remplacez `claude` par votre assistant :
 | `augment` | Augment | `.augment/skills/backend-security-audit/` |
 | `warp` | Warp | `.warp/skills/backend-security-audit/` |
 | `amazonq` | Amazon Q Developer | `.amazonq/rules/backend-security-audit.md` |
-| `universal` | Standard Agent Skills | `.agents/skills/backend-security-audit/` |
-| `all` | tous | — |
+| `universal` | Agent Skills standard | `.agents/skills/backend-security-audit/` |
 
-Autres commandes :
+Options (same for every installer): `--global` (home folder, all projects) · `--force` (update) · `--dry-run` · `list` / `--list` · `uninstall` (Node CLI). Messages are in English, or French if your system locale is French.
+
+Restart your assistant after installing.
+
+## Usage
+
+From the root of the project to audit, ask your assistant:
+
+> *"Audit the security of this project"*, *"Check my Supabase RLS policies"*, *"Are my Firebase rules safe?"*, *"Look for vulnerabilities in my backend"*
+
+In Claude Code you can also type `/backend-security-audit`. The report `SECURITY_AUDIT.md` is written at the project root, in the language you used.
+
+### Auditing your database (optional)
+
+Policies created from a dashboard do not appear in the code. To audit them, run the read-only scans on **your own** database:
 ```bash
-npx github:Deathgun07/backend-security-audit init                      # détecte les assistants présents dans le projet
-npx github:Deathgun07/backend-security-audit init --ai cursor,codex    # plusieurs assistants
-npx github:Deathgun07/backend-security-audit init --ai claude --global # pour tous vos projets (~/.claude/skills/)
-npx github:Deathgun07/backend-security-audit init --ai all --dry-run   # aperçu sans rien écrire
-npx github:Deathgun07/backend-security-audit list                      # où est-il installé ?
-npx github:Deathgun07/backend-security-audit uninstall --ai cursor
+# Supabase / Postgres (transaction rolled back at the end)
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f .claude/skills/backend-security-audit/scripts/scan_rls.sql
+# MySQL / MariaDB (SELECT only)
+mysql -u root -p -t < .claude/skills/backend-security-audit/scripts/scan_mysql.sql
 ```
-Pour mettre à jour : relancer `init` avec `--force`.
+The assistant will offer these scans; it never connects to a database without your consent.
 
-### Avec le gestionnaire de plugins de Claude Code
-
-```
-/plugin marketplace add Deathgun07/backend-security-audit
-/plugin install backend-security-audit@backend-security-audit
-```
-
-### Sans Node
-
-```bash
-git clone https://github.com/Deathgun07/backend-security-audit.git
-cd backend-security-audit
-./install.sh            # → ~/.claude/skills/
-./install.sh --projet   # → ./.claude/skills/ du dossier courant
-```
-Ou copiez `skills/backend-security-audit/` dans le dossier de skills de votre assistant.
-
-Relancez votre assistant après l'installation.
-
-## Utilisation
-
-Depuis la racine du projet à auditer :
-```
-/backend-security-audit
-```
-(Claude Code) ou, dans n'importe quel assistant, en langage naturel : *« audite la sécurité de ce projet »*, *« vérifie les policies RLS »*, *« cherche des failles dans mon backend »*.
-
-### Audit de la base de données (optionnel)
-
-Les policies créées depuis le dashboard n'apparaissent pas dans le code. Pour les auditer, exécutez `scan_rls.sql` sur **votre** base (lecture seule, transaction annulée à la fin) :
-```bash
-supabase start
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f ~/.claude/skills/backend-security-audit/scripts/scan_rls.sql
-```
-ou collez-le section par section dans le SQL Editor de votre projet.
-
-Pour MySQL / MariaDB, `scan_mysql.sql` liste les comptes sans mot de passe, les accès distants, les privilèges dangereux et les réglages risqués :
-```bash
-mysql -u root -p -t < ~/.claude/skills/backend-security-audit/scripts/scan_mysql.sql
-```
-Le skill vous proposera ces scripts ; il ne se connecte jamais à une base sans votre accord.
-
-### Utiliser les scripts sans Claude
+### Using the scripts without AI (CI, pre-commit)
 
 ```bash
-S=~/.claude/skills/backend-security-audit/scripts
-bash $S/detect_stack.sh  /chemin/projet          # JSON des stacks détectés
-bash $S/find_secrets.sh  /chemin/projet          # fichier:ligne:type:sévérité
-bash $S/grep_patterns.sh /chemin/projet nextjs,supabase
+S=.claude/skills/backend-security-audit/scripts
+bash $S/detect_stack.sh  .                    # detected stacks as JSON
+bash $S/find_secrets.sh  .                    # file:line:type:severity (values never printed)
+bash $S/grep_patterns.sh . nextjs,supabase    # file:line:pattern:severity
 ```
 
-## Ce qui est vérifié
+## The rules the skill follows
 
-| Stack | Points clés |
-|---|---|
-| Supabase | tables sans RLS, `USING (true)`, écriture `anon`, `SECURITY DEFINER` sans `search_path`, vues sans `security_invoker`, buckets publics, RPC exposées, `service_role` côté client, colonnes `role`/`is_admin` modifiables, `user_metadata` dans les policies |
-| Firebase | rules `if true` / sans condition, mode test à date, `request.auth != null` seul, champs de rôle modifiables, Realtime Database ouverte, Storage rules, Cloud Functions sans contrôle, compte de service commité |
-| PocketBase | API rules vides, rules `@request.auth.id != ""` trop larges, champs sensibles, filtres injectables, hooks sans auth |
-| MySQL / MariaDB | comptes sans mot de passe, root distant, `GRANT ALL ON *.*`, port 3306 publié, `local_infile`, mots de passe MD5 en base, SQL dynamique dans les procédures, phpMyAdmin/Adminer exposés, versions obsolètes |
-| Next.js | server actions et routes API sans auth, secrets `NEXT_PUBLIC_*`, middleware contournable, IDOR, validation (zod), en-têtes de sécurité, SSRF, XSS, webhooks non signés |
-| Node / Express | routes sans auth, injection SQL et NoSQL, mass assignment, JWT, CORS, path traversal, prototype pollution, désérialisation |
-| PHP | injection SQL, XSS, CSRF, sessions, upload, include/require, md5/sha1, identifiants en dur, `display_errors` |
-| Laravel | `APP_DEBUG`, `APP_KEY` commité, requêtes `*Raw`, mass assignment, policies, `{!! !!}`, exclusions CSRF, upload |
-| Flask / FastAPI | `debug=True`, `SECRET_KEY`, SQL f-string, SSTI, pickle/yaml, CORS `*`, dépendances d'auth, JWT non vérifié, modèles Pydantic |
-| Django | `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `raw()`/`extra()`, IDOR, `fields = "__all__"`, `AllowAny`, `csrf_exempt`, `mark_safe`, hachage faible |
-| Go | SQL `fmt.Sprintf`, middleware sans `return`/`Abort`, JWT, `exec.Command("sh")`, path traversal, SSRF, TLS, timeouts serveur, CORS |
-| Commun | `.env` commités, secrets dans l'historique git, dépendances (`bun audit`, `npm audit`, `composer audit`, `pip-audit`, `govulncheck`), rate limiting |
+1. **Read-only**: the audited code is never modified; fixes are proposed as diffs.
+2. **No finding without proof**: `file:line` plus an excerpt the AI actually re-read.
+3. **Two statuses only**: *Confirmed* (visible end to end in the code) or *To verify manually* (depends on something outside the repo, explained).
+4. **No offensive action**: only local code, and your own database if you provide it.
+5. **Secrets masked** in the report.
 
-Le détail, avec exemples vulnérables et corrigés, est dans [`skills/backend-security-audit/checklists/`](skills/backend-security-audit/checklists/).
-
-## Structure
+## Project layout
 
 ```
 skills/backend-security-audit/
-├── SKILL.md              # workflow et règles (lu par Claude)
-├── checklists/           # commun + une checklist par stack
+├── SKILL.md              # workflow and rules (read by the assistant)
+├── checklists/           # common + one checklist per stack (12)
 ├── scripts/              # detect_stack.sh, find_secrets.sh, grep_patterns.sh, scan_rls.sql, scan_mysql.sql
-└── templates/rapport.md  # modèle du rapport
+└── templates/rapport.md  # report template
+bin/cli.mjs               # npx / bunx / pnpm dlx installer (zero dependencies)
+install.sh                # bash installer (curl | bash)
 tests/
-├── fixtures/app-vulnerable/   # application volontairement vulnérable
-├── run_tests.sh               # vérifie que les scripts détectent les failles attendues
-└── test_cli.sh                # vérifie la CLI d'installation
-bin/cli.mjs                    # CLI npx (init / list / uninstall), sans dépendance
+├── fixtures/app-vulnerable/   # intentionally vulnerable app covering all 12 stacks
+├── run_tests.sh               # detection scripts (81 checks)
+└── test_cli.sh                # installers (23 checks)
 ```
 
-## Prérequis
+## Requirements
 
-- Linux (Ubuntu/Debian testés) ou WSL ; bash ≥ 4, `grep`, `find`, `git`
-- Optionnels : `ripgrep` (plus rapide), `psql`, `mysql`, `bun`/`npm`/`composer`/`pip-audit`/`govulncheck` pour l'audit des dépendances
-- macOS : installer un bash récent (`brew install bash`), le bash 3.2 système n'est pas supporté
+- Linux, macOS (with bash ≥ 4: `brew install bash`) or Windows via WSL / Git Bash; `grep`, `find`, `git`
+- Optional: `ripgrep` (faster), `psql`, `mysql`, `bun` / `npm` / `composer` / `pip-audit` / `govulncheck` for dependency audits
 
-## Tests
+## Limits
 
-```bash
-bash tests/run_tests.sh          # scripts de détection (VERBOSE=1 pour voir la sortie)
-bash tests/test_cli.sh           # CLI d'installation (npm pack + init/list/uninstall)
-```
+This is an AI-assisted static analysis, not a penetration test. It does not replace dynamic testing or a human review. The scripts produce **leads** the assistant must re-read; false negatives remain possible, especially in business logic.
 
-## Limites
+## Contributing
 
-C'est une analyse statique assistée, pas un pentest : elle ne remplace ni des tests dynamiques ni une revue humaine. Les scripts produisent des **pistes** que Claude doit relire ; des faux négatifs restent possibles, surtout sur la logique métier.
+PRs are welcome: new patterns (with a case in the fixture and the test), new checklists (Rails, Spring, ASP.NET, MongoDB…), fewer false positives, **translations**. Run `bash tests/run_tests.sh && bash tests/test_cli.sh` before opening a PR.
 
-## Contribuer
+## License
 
-Les PR sont bienvenues : nouveaux motifs (avec un cas ajouté à la fixture et au test), nouvelles checklists (Rails, Spring, ASP.NET, MongoDB…), réduction des faux positifs. Lancez `bash tests/run_tests.sh` avant d'ouvrir une PR.
-
-## Licence
-
-[MIT](LICENSE)
+[MIT](LICENSE) © Deathgun07

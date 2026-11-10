@@ -1,6 +1,6 @@
 ---
 name: backend-security-audit
-description: Audit de sécurité backend en lecture seule d'un projet local (Supabase, Firebase, PocketBase, MySQL/MariaDB, Next.js, Node/Express, PHP, Laravel, Flask, FastAPI, Django, Go) qui produit SECURITY_AUDIT.md avec preuves et correctifs en diff. À utiliser quand l'utilisateur demande d'« auditer la sécurité », « vérifier les failles », « faire un audit de sécurité / pentest du code », vérifier la RLS, les policies, les Firebase Security Rules, les API rules, les comptes MySQL, les secrets exposés ou les injections SQL d'un projet, ou tape /backend-security-audit. Ne pas utiliser pour attaquer un système tiers ni pour une revue de diff (préférer security-review).
+description: Read-only backend security audit of a local project (Supabase, Firebase, PocketBase, MySQL/MariaDB, Next.js, Node/Express, PHP, Laravel, Flask, FastAPI, Django, Go) producing SECURITY_AUDIT.md with evidence (file:line) and fixes as diffs. Use when the user asks to audit security, find vulnerabilities, check RLS / policies / Firebase Security Rules / PocketBase API rules / MySQL accounts, look for exposed secrets or SQL injections, or types /backend-security-audit. Also in French — « audite la sécurité », « cherche les failles », « vérifie la RLS ». Not for attacking third-party systems nor for reviewing a diff.
 ---
 
 # Audit de sécurité backend
@@ -16,7 +16,7 @@ description: Audit de sécurité backend en lecture seule d'un projet local (Sup
    - **À vérifier manuellement** : dépend d'un élément hors dépôt (config dashboard, variable d'env de prod, reverse proxy, version déployée). Dire précisément quoi vérifier et comment.
 4. **Aucune action offensive.** Pas de requête vers un serveur, une API ou une URL de production, pas de scan réseau, pas d'exploitation. `scan_rls.sql` / `scan_mysql.sql` ne s'exécutent que sur **la base de l'utilisateur**, avec son accord explicite et la chaîne de connexion qu'il fournit (base locale de préférence).
 5. **Secrets masqués** dans le rapport et dans les réponses : 6 premiers caractères puis `…****`.
-6. Tout en français.
+6. **Langue** : rédiger le rapport et les réponses dans la langue de la demande de l'utilisateur (titres du modèle `templates/rapport.md` traduits, nom de fichier inchangé : `SECURITY_AUDIT.md`). Les checklists sont en français : les traduire au besoin, ne jamais les citer telles quelles à un utilisateur non francophone.
 
 ## Workflow
 

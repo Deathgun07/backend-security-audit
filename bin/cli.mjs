@@ -37,25 +37,30 @@ const PLATFORMS = {
   universal:   { label: "Standard Agent Skills",   root: ".agents",    dir: "skills" },
 };
 
+// Langue : français si la locale système est française (ou BSA_LANG=fr), anglais sinon
+const FR = /^fr/i.test(process.env.BSA_LANG || process.env.LC_ALL || process.env.LANG || Intl.DateTimeFormat().resolvedOptions().locale || "");
+const t = (en, fr) => (FR ? fr : en);
+
 const c = process.stdout.isTTY ? { g: (s) => `\x1b[32m${s}\x1b[0m`, y: (s) => `\x1b[33m${s}\x1b[0m`, r: (s) => `\x1b[31m${s}\x1b[0m`, b: (s) => `\x1b[1m${s}\x1b[0m` }
                                 : { g: (s) => s, y: (s) => s, r: (s) => s, b: (s) => s };
 
 function help() {
-  console.log(`${c.b(NAME)} v${VERSION} : audit de sécurité backend pour assistants IA
+  console.log(`${c.b(NAME)} v${VERSION} : ${t("backend security audit skill for AI coding assistants", "audit de sécurité backend pour assistants IA")}
 
-Usage :
-  npx ${NAME} init [--ai <assistant>[,<assistant>…] | --ai all] [--global] [--force] [--dry-run]
+${t("Usage", "Usage")} :
+  npx ${NAME} init [--ai <assistant>[,…] | --ai all] [--global] [--force] [--dry-run]
   npx ${NAME} uninstall [--ai <assistant>] [--global]
   npx ${NAME} list
+  (bunx / pnpm dlx / yarn dlx ${t("work the same way", "fonctionnent pareil")})
 
-Options :
-  --ai       assistant(s) cible(s). Sans --ai : détection des dossiers présents (.claude, .cursor…),
-             Claude Code par défaut si rien n'est détecté.
-  --global   installe dans le dossier personnel (~/.claude/skills…) au lieu du projet courant
-  --force    remplace une installation existante
-  --dry-run  affiche ce qui serait fait sans rien écrire
+${t("Options", "Options")} :
+  --ai       ${t("target assistant(s). Without --ai: detects existing folders (.claude, .cursor…),", "assistant(s) cible(s). Sans --ai : détection des dossiers présents (.claude, .cursor…),")}
+             ${t("Claude Code by default if nothing is detected.", "Claude Code par défaut si rien n'est détecté.")}
+  --global   ${t("install in your home folder (~/.claude/skills…) instead of the current project", "installe dans le dossier personnel (~/.claude/skills…) au lieu du projet courant")}
+  --force    ${t("replace an existing installation (update)", "remplace une installation existante (mise à jour)")}
+  --dry-run  ${t("show what would be done without writing anything", "affiche ce qui serait fait sans rien écrire")}
 
-Assistants : ${Object.keys(PLATFORMS).join(", ")}`);
+${t("Assistants", "Assistants")} : ${Object.keys(PLATFORMS).join(", ")}`);
 }
 
 function parseArgs(argv) {
@@ -67,7 +72,7 @@ function parseArgs(argv) {
     else if (a === "--global" || a === "-g") o.global = true;
     else if (a === "--force" || a === "-f") o.force = true;
     else if (a === "--dry-run") o.dry = true;
-    else { console.error(c.r(`Option inconnue : ${a}`)); process.exit(1); }
+    else { console.error(c.r(`${t("Unknown option", "Option inconnue")} : ${a}`)); process.exit(1); }
   }
   return o;
 }
@@ -77,13 +82,13 @@ function resolveTargets(ai, base) {
   if (ai) {
     const list = ai.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
     const bad = list.filter((p) => !PLATFORMS[p]);
-    if (bad.length) { console.error(c.r(`Assistant inconnu : ${bad.join(", ")}`)); console.error(`Disponibles : ${Object.keys(PLATFORMS).join(", ")}`); process.exit(1); }
+    if (bad.length) { console.error(c.r(`${t("Unknown assistant", "Assistant inconnu")} : ${bad.join(", ")}`)); console.error(`${t("Available", "Disponibles")} : ${Object.keys(PLATFORMS).join(", ")}`); process.exit(1); }
     return list;
   }
   const found = Object.keys(PLATFORMS).filter((p) => !["universal", "antigravity", "codex"].includes(p) && existsSync(join(base, PLATFORMS[p].root)));
   if (existsSync(join(base, ".agents")) || existsSync(join(base, ".codex"))) found.push("universal");
-  if (found.length) { console.log(`Assistants détectés : ${found.join(", ")}`); return found; }
-  console.log("Aucun assistant détecté : installation pour Claude Code (utilisez --ai pour en choisir un autre).");
+  if (found.length) { console.log(`${t("Detected assistants", "Assistants détectés")} : ${found.join(", ")}`); return found; }
+  console.log(t("No assistant detected: installing for Claude Code (use --ai to choose another one).", "Aucun assistant détecté : installation pour Claude Code (utilisez --ai pour en choisir un autre)."));
   return ["claude"];
 }
 
@@ -110,7 +115,7 @@ function rewriteSkill(md, P, dataDir, base) {
 function install(p, base, o) {
   const { P, dataDir, mainFile } = paths(p, base);
   const exists = existsSync(dataDir) || existsSync(mainFile);
-  if (exists && !o.force) { console.log(`${c.y("•")} ${P.label} : déjà installé (${relOrAbs(dataDir, base, o)}), --force pour remplacer`); return; }
+  if (exists && !o.force) { console.log(`${c.y("•")} ${P.label} : ${t("already installed", "déjà installé")} (${relOrAbs(dataDir, base, o)}), ${t("use --force to update", "--force pour mettre à jour")}`); return; }
   if (o.dry) { console.log(`${c.y("[dry-run]")} ${P.label} → ${relOrAbs(dataDir, base, o)}${P.file ? ` + ${relOrAbs(mainFile, base, o)}` : ""}`); return; }
   if (exists) { rmSync(dataDir, { recursive: true, force: true }); if (P.file) rmSync(mainFile, { force: true }); }
   mkdirSync(dirname(dataDir), { recursive: true });
@@ -127,10 +132,10 @@ function install(p, base, o) {
 function uninstall(p, base, o) {
   const { P, dataDir, mainFile } = paths(p, base);
   if (!existsSync(dataDir) && !existsSync(mainFile)) return false;
-  if (o.dry) { console.log(`${c.y("[dry-run]")} suppression ${relOrAbs(dataDir, base, o)}`); return true; }
+  if (o.dry) { console.log(`${c.y("[dry-run]")} ${t("remove", "suppression")} ${relOrAbs(dataDir, base, o)}`); return true; }
   rmSync(dataDir, { recursive: true, force: true });
   if (P.file) rmSync(mainFile, { force: true });
-  console.log(`${c.g("✔")} ${P.label} : désinstallé`);
+  console.log(`${c.g("✔")} ${P.label} : ${t("uninstalled", "désinstallé")}`);
   return true;
 }
 
@@ -147,14 +152,14 @@ switch (o.cmd) {
   case "init":
   case "install": {
     for (const p of [...new Set(resolveTargets(o.ai, base))]) install(p, base, o);
-    if (!o.dry) console.log(`\nDans votre assistant, demandez : « audite la sécurité de ce projet » (Claude Code : /${NAME}).`);
+    if (!o.dry) console.log(t(`\nAsk your assistant: "audit the security of this project" (Claude Code: /${NAME}).`, `\nDans votre assistant, demandez : « audite la sécurité de ce projet » (Claude Code : /${NAME}).`));
     break;
   }
   case "uninstall":
   case "remove": {
     const targets = o.ai ? resolveTargets(o.ai, base) : Object.keys(PLATFORMS);
     const done = [...new Set(targets)].map((p) => uninstall(p, base, o)).some(Boolean);
-    if (!done) console.log("Rien à désinstaller.");
+    if (!done) console.log(t("Nothing to uninstall.", "Rien à désinstaller."));
     break;
   }
   case "list": {
@@ -166,5 +171,5 @@ switch (o.cmd) {
     break;
   }
   default:
-    console.error(c.r(`Commande inconnue : ${o.cmd}`)); help(); process.exit(1);
+    console.error(c.r(`${t("Unknown command", "Commande inconnue")} : ${o.cmd}`)); help(); process.exit(1);
 }

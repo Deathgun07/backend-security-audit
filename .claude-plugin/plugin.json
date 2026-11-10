@@ -1,7 +1,7 @@
 {
   "name": "backend-security-audit",
-  "version": "1.2.0",
-  "description": "Audit de sécurité backend en lecture seule (Supabase, Firebase, PocketBase, MySQL, Next.js, Node/Express, PHP, Laravel, Flask, FastAPI, Django, Go) avec rapport SECURITY_AUDIT.md, preuves et correctifs en diff.",
+  "version": "1.3.0",
+  "description": "Read-only backend security audit skill for AI coding assistants (Claude Code, Cursor, Codex, Gemini CLI, Copilot, Windsurf…): Supabase, Firebase, PocketBase, MySQL, Next.js, Express, PHP, Laravel, Flask, FastAPI, Django, Go. Evidence for every finding, fixes as diffs.",
   "author": {
     "name": "Deathgun07"
   },

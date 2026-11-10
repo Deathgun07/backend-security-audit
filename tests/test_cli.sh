@@ -11,7 +11,7 @@ check "npm pack" "[ -f '$WORK/$TGZ' ]"
 mkdir -p "$WORK/proj" "$WORK/home"
 cd "$WORK/proj"
 CLI=(npx --yes --package "$WORK/$TGZ" backend-security-audit)
-export HOME="$WORK/home"
+export HOME="$WORK/home" BSA_LANG=fr
 
 "${CLI[@]}" init --ai claude,cursor,codex,copilot,kiro,amazonq >/dev/null
 check "claude"   "[ -f .claude/skills/backend-security-audit/SKILL.md ] && [ -x .claude/skills/backend-security-audit/scripts/find_secrets.sh ]"
@@ -32,5 +32,26 @@ mkdir -p ../auto/.windsurf && cd ../auto && "${CLI[@]}" init >/dev/null
 check "détection auto" "[ -f .windsurf/skills/backend-security-audit/SKILL.md ] && [ ! -e .claude ]"
 check "dry-run"  "\"\${CLI[@]}\" init --ai trae --dry-run | grep -q dry-run && [ ! -e .trae ]"
 
-echo "$ok réussis, $ko échoués"
+echo "CLI : $ok réussis, $ko échoués"
+
+# ── install.sh (sans Node)
+ok2=$ok; ko2=$ko
+mkdir -p "$WORK/sh" && cd "$WORK/sh"
+bash "$REPO/install.sh" --ai claude,copilot,amazonq >/dev/null
+check "sh claude"  "[ -x .claude/skills/backend-security-audit/scripts/grep_patterns.sh ]"
+check "sh copilot" "[ -f .github/prompts/backend-security-audit.prompt.md ] && head -2 .github/prompts/backend-security-audit.prompt.md | grep -q '^description:' && grep -q 'SKILL_DIR\` = \`.github/prompts/backend-security-audit\`' .github/prompts/backend-security-audit.prompt.md && [ ! -f .github/prompts/backend-security-audit/SKILL.md ]"
+check "sh amazonq" "[ -f .amazonq/rules/backend-security-audit.md ] && ! head -1 .amazonq/rules/backend-security-audit.md | grep -q '^---'"
+check "sh déjà installé (fr)" "grep -q 'déjà installé' <<< \"\$(BSA_LANG=fr bash '$REPO/install.sh' --ai claude)\""
+check "sh already installed (en)" "grep -q 'already installed' <<< \"\$(BSA_LANG=en bash '$REPO/install.sh' --ai claude)\""
+check "sh list" "grep -q '✔ copilot' <<< \"\$(bash '$REPO/install.sh' --list)\""
+bash "$REPO/install.sh" --ai codex --global >/dev/null
+check "sh global" "[ -f '$WORK/home/.agents/skills/backend-security-audit/SKILL.md' ]"
+# Mode « curl | bash » : script seul, téléchargement depuis GitHub
+if [ "${OFFLINE:-0}" != 1 ]; then
+  mkdir -p "$WORK/curl" && cp "$REPO/install.sh" "$WORK/curl/i.sh" && mkdir -p "$WORK/curlproj" && cd "$WORK/curlproj"
+  bash "$WORK/curl/i.sh" --ai cursor >/dev/null 2>&1
+  check "sh téléchargement GitHub" "[ -f .cursor/skills/backend-security-audit/checklists/go.md ]"
+fi
+echo "install.sh : $((ok-ok2)) réussis, $((ko-ko2)) échoués"
+echo "TOTAL : $ok réussis, $ko échoués"
 [ "$ko" -eq 0 ]
