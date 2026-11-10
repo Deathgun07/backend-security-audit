@@ -1,6 +1,6 @@
 # backend-security-audit
 
-Skill [Claude Code](https://claude.com/claude-code) qui audite la sécurité backend d'un projet **en lecture seule** et produit un rapport `SECURITY_AUDIT.md` : score /100, failles classées par sévérité et catégorie OWASP, preuve `fichier:ligne` pour chacune, correctif sous forme de diff.
+Skill pour assistants IA de code ([Claude Code](https://claude.com/claude-code), Cursor, Codex, Gemini CLI, GitHub Copilot, Windsurf, Kiro…) qui audite la sécurité backend d'un projet **en lecture seule** et produit un rapport `SECURITY_AUDIT.md` : score /100, failles classées par sévérité et catégorie OWASP, preuve `fichier:ligne` pour chacune, correctif sous forme de diff.
 
 Stacks couverts :
 - **Bases de données / BaaS** : Supabase (Postgres + RLS), Firebase (Firestore, Realtime Database, Storage, Cloud Functions), PocketBase, MySQL / MariaDB
@@ -26,28 +26,69 @@ Règles appliquées par le skill :
 
 ## Installation
 
-### Option 1 : plugin Claude Code (recommandé)
+### Avec la CLI (tous les assistants IA)
 
-Dans Claude Code :
+Une seule commande, sans installation préalable (Node ≥ 18) :
+
+```bash
+npx github:Deathgun07/backend-security-audit init --ai claude
+```
+
+Remplacez `claude` par votre assistant :
+
+| `--ai` | Assistant | Dossier créé |
+|---|---|---|
+| `claude` | Claude Code | `.claude/skills/backend-security-audit/` |
+| `cursor` | Cursor | `.cursor/skills/backend-security-audit/` |
+| `codex` | Codex CLI | `.agents/skills/backend-security-audit/` |
+| `gemini` | Gemini CLI | `.gemini/skills/backend-security-audit/` |
+| `copilot` | GitHub Copilot | `.github/prompts/backend-security-audit.prompt.md` |
+| `windsurf` | Windsurf | `.windsurf/skills/backend-security-audit/` |
+| `kiro` | Kiro | `.kiro/steering/backend-security-audit/` |
+| `antigravity` | Antigravity | `.agents/skills/backend-security-audit/` |
+| `opencode` | OpenCode | `.opencode/skills/backend-security-audit/` |
+| `roocode` | Roo Code | `.roo/skills/backend-security-audit/` |
+| `kilocode` | Kilo Code | `.kilocode/skills/backend-security-audit/` |
+| `continue` | Continue | `.continue/skills/backend-security-audit/` |
+| `trae` | Trae | `.trae/skills/backend-security-audit/` |
+| `qoder` | Qoder | `.qoder/skills/backend-security-audit/` |
+| `codebuddy` | CodeBuddy | `.codebuddy/skills/backend-security-audit/` |
+| `droid` | Droid (Factory) | `.factory/skills/backend-security-audit/` |
+| `augment` | Augment | `.augment/skills/backend-security-audit/` |
+| `warp` | Warp | `.warp/skills/backend-security-audit/` |
+| `amazonq` | Amazon Q Developer | `.amazonq/rules/backend-security-audit.md` |
+| `universal` | Standard Agent Skills | `.agents/skills/backend-security-audit/` |
+| `all` | tous | — |
+
+Autres commandes :
+```bash
+npx github:Deathgun07/backend-security-audit init                      # détecte les assistants présents dans le projet
+npx github:Deathgun07/backend-security-audit init --ai cursor,codex    # plusieurs assistants
+npx github:Deathgun07/backend-security-audit init --ai claude --global # pour tous vos projets (~/.claude/skills/)
+npx github:Deathgun07/backend-security-audit init --ai all --dry-run   # aperçu sans rien écrire
+npx github:Deathgun07/backend-security-audit list                      # où est-il installé ?
+npx github:Deathgun07/backend-security-audit uninstall --ai cursor
+```
+Pour mettre à jour : relancer `init` avec `--force`.
+
+### Avec le gestionnaire de plugins de Claude Code
+
 ```
 /plugin marketplace add Deathgun07/backend-security-audit
 /plugin install backend-security-audit@backend-security-audit
 ```
 
-### Option 2 : script d'installation
+### Sans Node
 
 ```bash
 git clone https://github.com/Deathgun07/backend-security-audit.git
 cd backend-security-audit
-./install.sh            # pour tous vos projets  → ~/.claude/skills/
-./install.sh --projet   # pour le projet courant → ./.claude/skills/ (lancer depuis la racine du projet)
+./install.sh            # → ~/.claude/skills/
+./install.sh --projet   # → ./.claude/skills/ du dossier courant
 ```
+Ou copiez `skills/backend-security-audit/` dans le dossier de skills de votre assistant.
 
-### Option 3 : copie manuelle
-
-Copiez le dossier `skills/backend-security-audit/` dans `~/.claude/skills/` (global) ou `<projet>/.claude/skills/` (projet).
-
-Relancez Claude Code après l'installation.
+Relancez votre assistant après l'installation.
 
 ## Utilisation
 
@@ -55,7 +96,7 @@ Depuis la racine du projet à auditer :
 ```
 /backend-security-audit
 ```
-ou en langage naturel : *« audite la sécurité de ce projet »*, *« vérifie les policies RLS »*, *« cherche des failles dans mon backend »*.
+(Claude Code) ou, dans n'importe quel assistant, en langage naturel : *« audite la sécurité de ce projet »*, *« vérifie les policies RLS »*, *« cherche des failles dans mon backend »*.
 
 ### Audit de la base de données (optionnel)
 
@@ -110,7 +151,9 @@ skills/backend-security-audit/
 └── templates/rapport.md  # modèle du rapport
 tests/
 ├── fixtures/app-vulnerable/   # application volontairement vulnérable
-└── run_tests.sh               # vérifie que les scripts détectent les failles attendues
+├── run_tests.sh               # vérifie que les scripts détectent les failles attendues
+└── test_cli.sh                # vérifie la CLI d'installation
+bin/cli.mjs                    # CLI npx (init / list / uninstall), sans dépendance
 ```
 
 ## Prérequis
@@ -122,7 +165,8 @@ tests/
 ## Tests
 
 ```bash
-bash tests/run_tests.sh          # VERBOSE=1 pour voir la sortie des scripts
+bash tests/run_tests.sh          # scripts de détection (VERBOSE=1 pour voir la sortie)
+bash tests/test_cli.sh           # CLI d'installation (npm pack + init/list/uninstall)
 ```
 
 ## Limites

@@ -1,0 +1,50 @@
+{
+  "name": "backend-security-audit",
+  "version": "1.2.0",
+  "description": "Skill d'audit de sécurité backend en lecture seule pour assistants IA (Claude Code, Cursor, Codex, Gemini CLI, Copilot, Windsurf…) : Supabase, Firebase, PocketBase, MySQL, Next.js, Express, PHP, Laravel, Flask, FastAPI, Django, Go.",
+  "type": "module",
+  "bin": {
+    "backend-security-audit": "bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "bash tests/run_tests.sh && bash tests/test_cli.sh"
+  },
+  "keywords": [
+    "security",
+    "audit",
+    "owasp",
+    "ai-skill",
+    "agent-skills",
+    "claude-code",
+    "cursor",
+    "codex",
+    "gemini-cli",
+    "copilot",
+    "supabase",
+    "firebase",
+    "pocketbase",
+    "mysql",
+    "laravel",
+    "django",
+    "golang"
+  ],
+  "author": "Deathgun07",
+  "license": "MIT",
+  "homepage": "https://github.com/Deathgun07/backend-security-audit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Deathgun07/backend-security-audit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Deathgun07/backend-security-audit/issues"
+  }
+}
