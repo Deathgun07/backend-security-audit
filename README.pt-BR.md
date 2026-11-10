@@ -8,6 +8,7 @@ Uma prova para cada vulnerabilidade, correções em diff, um relatório prioriza
 [English](README.md) · [Français](README.fr.md) · [Español](README.es.md) · **Português (BR)** · [简体中文](README.zh-CN.md)
 
 [![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
 ![Assistentes](https://img.shields.io/badge/assistentes-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -15,7 +16,7 @@ Uma prova para cada vulnerabilidade, correções em diff, um relatório prioriza
 
 Funciona com **Claude Code, Cursor, Codex CLI, Gemini CLI, GitHub Copilot, Windsurf, Kiro** e mais 13 assistentes. Peça *"audite a segurança deste projeto"* e você recebe um `SECURITY_AUDIT.md` com nota de 0 a 100, vulnerabilidades classificadas por severidade e categoria OWASP, uma prova `arquivo:linha` para cada uma e uma correção pronta para aplicar.
 
-> 📄 Relatório de exemplo: [exemples/SECURITY_AUDIT.md](exemples/SECURITY_AUDIT.md) (em francês; os relatórios são escritos no seu idioma)
+> 📄 Relatório de exemplo, gerado pelo skill em um app intencionalmente vulnerável que cobre os 12 stacks: [examples/SECURITY_AUDIT.md](examples/SECURITY_AUDIT.md) (em inglês; seus relatórios são escritos no idioma do seu pedido).
 
 ## O que ele traz para você
 
@@ -101,7 +102,7 @@ Linux, macOS (bash ≥ 4) ou Windows com WSL / Git Bash. É uma análise estáti
 
 ## Contribuir
 
-PRs são bem-vindos: novos padrões, novas checklists (Rails, Spring, ASP.NET, MongoDB…), menos falsos positivos e **traduções**. Rode `bash tests/run_tests.sh && bash tests/test_cli.sh` antes de abrir um PR.
+PRs são bem-vindos: novos padrões, novas checklists (Rails, Spring, ASP.NET, MongoDB…), menos falsos positivos e **traduções**. Veja [CONTRIBUTING.md](CONTRIBUTING.md) (em inglês). Para reportar uma falha de segurança do próprio skill: [SECURITY.md](SECURITY.md).
 
 ## Licença
 

@@ -2,5 +2,5 @@
 .env.*
 !.env.example
 SECURITY_AUDIT*.md
-!exemples/SECURITY_AUDIT.md
+!examples/SECURITY_AUDIT*.md
 node_modules/

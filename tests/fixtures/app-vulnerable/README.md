@@ -1,4 +1,5 @@
 # app-vulnerable
 
-Application **volontairement vulnérable** servant de cible aux tests du skill. Ne jamais déployer.
-Le fichier `.env` (avec de faux secrets) est généré à la volée par `tests/run_tests.sh` pour ne pas déclencher la protection anti-secrets de GitHub.
+**Intentionally vulnerable** application used as the target of the skill tests. It covers the 12 supported stacks. Never deploy it.
+
+The `.env` file (with fake secrets) is generated on the fly by `tests/run_tests.sh`, so that no string resembling a real key is committed (GitHub push protection would block it).

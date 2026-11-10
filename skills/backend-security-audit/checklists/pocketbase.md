@@ -1,14 +1,14 @@
-# Checklist PocketBase
+# PocketBase checklist
 
-Sources : `pb_migrations/*.js` (et `pb_schema.json` s'il existe), `pb_hooks/*.pb.js`, code client (`new PocketBase(...)`), éventuellement `pb_data` **sans l'ouvrir en écriture**.
-Sémantique des API rules :
-| Valeur | Signification |
+Sources: `pb_migrations/*.js` (and `pb_schema.json` if present), `pb_hooks/*.pb.js`, client code (`new PocketBase(...)`), optionally `pb_data` **without opening it for writing**.
+API rules semantics:
+| Value | Meaning |
 |---|---|
-| `null` | réservé aux superusers (verrouillé) |
-| `""` (chaîne vide) | **public : tout le monde, sans authentification** |
-| expression | autorisé si l'expression est vraie |
+| `null` | superusers only (locked) |
+| `""` (empty string) | **public: everyone, no authentication** |
+| expression | allowed if the expression is true |
 
-## PB1. API rules vides (accès public) — Critique à Info (A01)
+## PB1. Empty API rules (public access) — Critical to Info (A01)
 ```js
 // ❌ pb_migrations/1700000000_created_invoices.js
 listRule: "", viewRule: "", createRule: "", updateRule: "", deleteRule: "",
@@ -19,70 +19,70 @@ createRule: "@request.auth.id != '' && @request.body.user = @request.auth.id",
 updateRule: "user = @request.auth.id && @request.body.user:isset = false",
 deleteRule: null,
 ```
-- `listRule/viewRule ""` sur données publiques (articles publiés) = Info ; sur données personnelles = Haute.
-- `create/update/deleteRule ""` = Critique (sauf create d'un formulaire public assumé → Moyenne, avec validation de champs).
-- Lire la **dernière** migration qui touche la collection : les migrations successives écrasent les règles.
+- `listRule/viewRule ""` on public data (published articles) = Info; on personal data = High.
+- `create/update/deleteRule ""` = Critical (except create on an intentional public form → Medium, with field validation).
+- Read the **latest** migration that touches the collection: successive migrations overwrite the rules.
 
-## PB2. Rules `@request.auth.id != ""` trop larges — Haute (A01)
-« Connecté » ≠ « propriétaire » : tout utilisateur inscrit lit/modifie les données de tous.
+## PB2. Overly broad `@request.auth.id != ""` rules — High (A01)
+"Logged in" ≠ "owner": any registered user reads/modifies everyone's data.
 ```js
 // ❌
 updateRule: "@request.auth.id != ''"
 // ✅
 updateRule: "@request.auth.id != '' && owner = @request.auth.id"
 ```
-- Inscription ouverte (`users.createRule = ""`) + rule `@request.auth.id != ""` ⇒ équivalent public. Le signaler.
-- Rôles : `@request.auth.role = 'admin'` n'est sûr que si `role` n'est pas modifiable par l'utilisateur (PB3).
+- Open registration (`users.createRule = ""`) + rule `@request.auth.id != ""` ⇒ equivalent to public. Flag it.
+- Roles: `@request.auth.role = 'admin'` is only safe if `role` cannot be modified by the user (PB3).
 
-## PB3. Champs sensibles modifiables ou exposés — Haute (A01)
-- Collection `users` avec champ `role`, `is_admin`, `credits`, `plan`, `verified` et `updateRule: "id = @request.auth.id"` → l'utilisateur s'auto-promeut.
+## PB3. Sensitive fields modifiable or exposed — High (A01)
+- `users` collection with a `role`, `is_admin`, `credits`, `plan`, `verified` field and `updateRule: "id = @request.auth.id"` → the user self-promotes.
 ```js
-// ✅ interdire la modification du champ par l'API
+// ✅ forbid modifying the field through the API
 updateRule: "id = @request.auth.id && @request.body.role:isset = false && @request.body.credits:isset = false"
 ```
-- Champs à masquer : option `hidden: true` (PB ≥ 0.23) pour `token`, `secret`, `api_key`, notes internes ; sinon ils sortent dans chaque `list`.
-- `emailVisibility` : vérifier qu'elle n'est pas forcée à `true`.
-- Relations expand : `?expand=user` peut exposer la fiche d'un autre utilisateur si `users.viewRule` est large.
+- Fields to hide: `hidden: true` option (PB ≥ 0.23) for `token`, `secret`, `api_key`, internal notes; otherwise they are returned in every `list`.
+- `emailVisibility`: check that it is not forced to `true`.
+- Expand relations: `?expand=user` can expose another user's record if `users.viewRule` is broad.
 
-## PB4. Filtres injectables côté client / hooks — Haute (A03)
+## PB4. Injectable filters in client code / hooks — High (A03)
 ```js
-// ❌ (client ou hook) : concaténation dans le filtre
+// ❌ (client or hook): concatenation in the filter
 pb.collection("posts").getList(1, 20, { filter: `title ~ "${q}"` });
 $app.findRecordsByFilter("posts", "owner = '" + id + "'");
 // ✅
 pb.collection("posts").getList(1, 20, { filter: pb.filter("title ~ {:q}", { q }) });
 $app.findRecordsByFilter("posts", "owner = {:id}", "-created", 50, 0, { id });
 ```
-- SQL brut dans un hook : `$app.db().newQuery("... " + x)` → utiliser `.bind({ x })` avec `{:x}`.
+- Raw SQL in a hook: `$app.db().newQuery("... " + x)` → use `.bind({ x })` with `{:x}`.
 
-## PB5. Hooks JS non sécurisés — Haute à Critique (A01)
-- `routerAdd(...)` sans middleware d'auth : la route est publique.
+## PB5. Insecure JS hooks — High to Critical (A01)
+- `routerAdd(...)` without an auth middleware: the route is public.
 ```js
 // ❌
 routerAdd("POST", "/api/admin/credit", (e) => { /* ... */ });
 // ✅
 routerAdd("POST", "/api/admin/credit", (e) => { /* ... */ }, $apis.requireSuperuserAuth());
-// ou $apis.requireAuth("users") + vérification e.auth.get("role") / propriétaire
+// or $apis.requireAuth("users") + check e.auth.get("role") / owner
 ```
-- Hook qui sauvegarde avec des champs pris tels quels dans la requête (`record.load(e.requestInfo().body)`) → mass assignment.
-- `$app.save()` dans un hook contourne les API rules : le hook doit faire lui-même le contrôle d'appartenance.
-- `$os.exec` / `$os.cmd` avec une entrée utilisateur → RCE (Critique).
+- Hook that saves fields taken as-is from the request (`record.load(e.requestInfo().body)`) → mass assignment.
+- `$app.save()` in a hook bypasses API rules: the hook must do the ownership check itself.
+- `$os.exec` / `$os.cmd` with user input → RCE (Critical).
 - `$http.send({ url: body.url })` → SSRF.
-- Secrets en dur dans les hooks (clés de paiement) → utiliser `$os.getenv("...")`.
+- Hardcoded secrets in hooks (payment keys) → use `$os.getenv("...")`.
 
-## PB6. Auth et admin — Moyenne à Haute (A07)
-- Interface `/_/` exposée publiquement sans restriction IP, superuser au mot de passe faible / par défaut dans un script d'init commité.
-- `authRule` permissive, `passwordAuth.enabled` avec `minPasswordLength` < 8, OTP sans limite.
-- Rate limiting (Settings → Rate limits, PB ≥ 0.23) : non visible dans le dépôt → « à vérifier ».
-- Token d'auth stocké dans `localStorage` (défaut du SDK) + XSS = vol de session : à mentionner si XSS trouvé.
+## PB6. Auth and admin — Medium to High (A07)
+- `/_/` interface publicly exposed without IP restriction, superuser with a weak / default password in a committed init script.
+- Permissive `authRule`, `passwordAuth.enabled` with `minPasswordLength` < 8, OTP without a limit.
+- Rate limiting (Settings → Rate limits, PB ≥ 0.23): not visible in the repo → "to verify manually".
+- Auth token stored in `localStorage` (SDK default) + XSS = session theft: mention if XSS is found.
 
-## PB7. Fichiers — Moyenne (A01)
-- Champ `file` avec `protected: false` sur des documents privés : URL accessibles sans token.
-- `mimeTypes` vide et `maxSize` énorme → upload de HTML/SVG servi depuis le domaine.
+## PB7. Files — Medium (A01)
+- `file` field with `protected: false` on private documents: URLs accessible without a token.
+- Empty `mimeTypes` and huge `maxSize` → upload of HTML/SVG served from the domain.
 ```js
 // ✅
 { type: "file", name: "piece", protected: true, maxSize: 5242880, mimeTypes: ["application/pdf", "image/jpeg", "image/png"] }
 ```
 
-## PB8. Déploiement — Moyenne (A05)
-`pocketbase serve --http 0.0.0.0:8090` sans reverse proxy TLS, `--dev` en production (logs SQL verbeux), `pb_data/` commité.
+## PB8. Deployment — Medium (A05)
+`pocketbase serve --http 0.0.0.0:8090` without a TLS reverse proxy, `--dev` in production (verbose SQL logs), `pb_data/` committed.

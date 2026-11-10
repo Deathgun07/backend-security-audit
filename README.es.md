@@ -8,6 +8,7 @@ Una prueba para cada vulnerabilidad, correcciones en formato diff, un informe pr
 [English](README.md) · [Français](README.fr.md) · **Español** · [Português (BR)](README.pt-BR.md) · [简体中文](README.zh-CN.md)
 
 [![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
 ![Asistentes](https://img.shields.io/badge/asistentes-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -15,7 +16,7 @@ Una prueba para cada vulnerabilidad, correcciones en formato diff, un informe pr
 
 Funciona con **Claude Code, Cursor, Codex CLI, Gemini CLI, GitHub Copilot, Windsurf, Kiro** y otros 13 asistentes. Pide *"audita la seguridad de este proyecto"* y obtienes un `SECURITY_AUDIT.md` con una puntuación sobre 100, vulnerabilidades clasificadas por severidad y categoría OWASP, una prueba `archivo:línea` para cada una y una corrección lista para aplicar.
 
-> 📄 Informe de ejemplo: [exemples/SECURITY_AUDIT.md](exemples/SECURITY_AUDIT.md) (en francés; los informes se redactan en tu idioma)
+> 📄 Informe de ejemplo, generado por el skill sobre una aplicación intencionadamente vulnerable que cubre los 12 stacks: [examples/SECURITY_AUDIT.md](examples/SECURITY_AUDIT.md) (en inglés; tus informes se redactan en el idioma de tu petición).
 
 ## Lo que te aporta
 
@@ -101,7 +102,7 @@ Linux, macOS (bash ≥ 4) o Windows con WSL / Git Bash. Es un análisis estátic
 
 ## Contribuir
 
-Se aceptan PR: nuevos patrones, nuevas checklists (Rails, Spring, ASP.NET, MongoDB…), menos falsos positivos y **traducciones**. Ejecuta `bash tests/run_tests.sh && bash tests/test_cli.sh` antes de abrir una PR.
+Se aceptan PR: nuevos patrones, nuevas checklists (Rails, Spring, ASP.NET, MongoDB…), menos falsos positivos y **traducciones**. Consulta [CONTRIBUTING.md](CONTRIBUTING.md) (en inglés). Para reportar un fallo de seguridad del propio skill: [SECURITY.md](SECURITY.md).
 
 ## Licencia
 

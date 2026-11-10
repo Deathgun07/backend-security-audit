@@ -107,7 +107,7 @@ function rewriteSkill(md, P, dataDir, base) {
   const desc = m ? (m[1].match(/^description:\s*(.*)$/m) || [])[1] : "";
   let body = m ? md.slice(m[0].length) : md;
   const rel = relative(base, dataDir) || dataDir;
-  body = body.replace("`SKILL_DIR` = dossier de ce fichier.", `\`SKILL_DIR\` = \`${rel}\` (contient scripts/, checklists/, templates/).`);
+  body = body.replace(/`SKILL_DIR` = [^.]*\./, `\`SKILL_DIR\` = \`${rel}\` (scripts/, checklists/, templates/).`);
   if (P.fm === "description" && desc) return `---\ndescription: ${desc}\n---\n${body}`;
   return body;
 }

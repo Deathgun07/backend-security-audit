@@ -8,6 +8,7 @@
 [English](README.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português (BR)](README.pt-BR.md) · **简体中文**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
 ![Assistants](https://img.shields.io/badge/assistants-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -15,7 +16,7 @@
 
 支持 **Claude Code、Cursor、Codex CLI、Gemini CLI、GitHub Copilot、Windsurf、Kiro** 等 20 个助手。只需说 *“审计这个项目的安全性”*，即可得到一份 `SECURITY_AUDIT.md`：100 分制评分、按严重程度和 OWASP 类别分类的漏洞、每个漏洞的 `文件:行号` 证据，以及可直接应用的修复。
 
-> 📄 报告示例：[exemples/SECURITY_AUDIT.md](exemples/SECURITY_AUDIT.md)（法语；报告会使用你提问的语言）
+> 📄 报告示例：由本技能在一个覆盖全部 12 个技术栈的故意存在漏洞的应用上生成：[examples/SECURITY_AUDIT.md](examples/SECURITY_AUDIT.md)（英文；你的报告会使用你提问的语言）。
 
 ## 它能为你带来什么
 
@@ -101,7 +102,7 @@ Linux、macOS（bash ≥ 4）或 Windows 上的 WSL / Git Bash。这是 AI 辅�
 
 ## 贡献
 
-欢迎 PR：新的检测模式、新的检查清单（Rails、Spring、ASP.NET、MongoDB…）、减少误报，以及 **翻译**。提交 PR 前请运行 `bash tests/run_tests.sh && bash tests/test_cli.sh`。
+欢迎 PR：新的检测模式、新的检查清单（Rails、Spring、ASP.NET、MongoDB…）、减少误报，以及 **翻译**。请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)（英文）。如需报告技能本身的安全问题，请参阅 [SECURITY.md](SECURITY.md)。
 
 ## 许可证
 

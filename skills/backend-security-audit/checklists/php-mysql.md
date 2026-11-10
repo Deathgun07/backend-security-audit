@@ -1,9 +1,9 @@
-# Checklist PHP / MySQL
+# PHP / MySQL checklist
 
-Fichiers à lire en priorité : `config*.php`, `db*.php`, `connexion*.php`, `login*.php`, `register*.php`, `upload*.php`, `admin/`, `.htaccess`, `php.ini`, `index.php` (routeur).
+Files to read first: `config*.php`, `db*.php`, `connexion*.php`, `login*.php`, `register*.php`, `upload*.php`, `admin/`, `.htaccess`, `php.ini`, `index.php` (router).
 
-## P1. Injection SQL — Critique (A03)
-Concaténation ou interpolation de variables dans la requête, même « déjà filtrées » (`addslashes`, `mysqli_real_escape_string` sans quotes, `intval` oublié).
+## P1. SQL injection — Critical (A03)
+Concatenation or interpolation of variables in the query, even "already filtered" ones (`addslashes`, `mysqli_real_escape_string` without quotes, forgotten `intval`).
 ```php
 // ❌
 $id = $_GET['id'];
@@ -16,65 +16,65 @@ $stmt->execute([$_POST['email']]);
 $stmt = $conn->prepare('SELECT * FROM users WHERE id = ?');
 $stmt->bind_param('i', $_GET['id']); $stmt->execute();
 ```
-- `prepare()` avec variable interpolée dedans = toujours vulnérable.
-- Noms de colonnes / `ORDER BY` dynamiques : liste blanche (`in_array($col, ['nom','date'], true)`).
-- Vérifier `PDO::ATTR_EMULATE_PREPARES => false` et `charset=utf8mb4` dans le DSN.
-- **Preuve** : remonter la variable jusqu'à sa source (`$_GET`, `$_POST`, `$_COOKIE`, `$_SERVER['HTTP_*']`).
+- `prepare()` with an interpolated variable inside = always vulnerable.
+- Dynamic column names / `ORDER BY`: allowlist (`in_array($col, ['nom','date'], true)`).
+- Check `PDO::ATTR_EMULATE_PREPARES => false` and `charset=utf8mb4` in the DSN.
+- **Evidence**: trace the variable back to its source (`$_GET`, `$_POST`, `$_COOKIE`, `$_SERVER['HTTP_*']`).
 
-## P2. XSS — Haute (A03)
+## P2. XSS — High (A03)
 ```php
 // ❌
-echo "Bonjour " . $_GET['nom'];
+echo "Hello " . $_GET['nom'];
 <?= $commentaire['texte'] ?>
 // ✅
 function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
-echo 'Bonjour ' . e($_GET['nom']);
+echo 'Hello ' . e($_GET['nom']);
 <?= e($commentaire['texte']) ?>
 ```
-- XSS stocké (donnée BDD affichée) = Haute ; réfléchi = Moyenne à Haute.
-- `$_SERVER['PHP_SELF']` dans `action=""` sans échappement = XSS réfléchi.
-- Contextes JS / attribut : `json_encode($v, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP)`.
+- Stored XSS (DB data displayed) = High; reflected = Medium to High.
+- `$_SERVER['PHP_SELF']` in `action=""` without escaping = reflected XSS.
+- JS / attribute contexts: `json_encode($v, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP)`.
 
-## P3. CSRF — Moyenne à Haute (A01)
-Formulaires POST qui modifient l'état (mot de passe, suppression, paiement, admin) sans jeton.
+## P3. CSRF — Medium to High (A01)
+POST forms that change state (password, deletion, payment, admin) without a token.
 ```php
-// ✅ génération
+// ✅ generation
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
 echo '<input type="hidden" name="csrf" value="' . e($_SESSION['csrf']) . '">';
-// ✅ vérification
+// ✅ verification
 if (!hash_equals($_SESSION['csrf'] ?? '', $_POST['csrf'] ?? '')) { http_response_code(403); exit; }
 ```
-- Actions sensibles en GET (`supprimer.php?id=3`) = Haute.
-- `SameSite=Lax` réduit le risque mais ne remplace pas le jeton.
+- Sensitive actions via GET (`supprimer.php?id=3`) = High.
+- `SameSite=Lax` reduces the risk but does not replace the token.
 
-## P4. Sessions — Moyenne (A07)
+## P4. Sessions — Medium (A07)
 ```php
-// ❌ login sans régénération → fixation de session
+// ❌ login without regeneration → session fixation
 $_SESSION['user_id'] = $user['id'];
 // ✅
 session_set_cookie_params(['httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
-// ... après vérification du mot de passe :
+// ... after verifying the password:
 session_regenerate_id(true);
 $_SESSION['user_id'] = $user['id'];
 ```
-- Logout : `session_unset(); session_destroy();` + suppression du cookie.
+- Logout: `session_unset(); session_destroy();` + cookie deletion.
 - `session.use_strict_mode = 1`, `session.use_only_cookies = 1`.
-- Rôle stocké dans un cookie (`$_COOKIE['role'] == 'admin'`) = Critique.
+- Role stored in a cookie (`$_COOKIE['role'] == 'admin'`) = Critical.
 
-## P5. Upload de fichiers — Haute à Critique (A04)
+## P5. File upload — High to Critical (A04)
 ```php
 // ❌
 move_uploaded_file($_FILES['f']['tmp_name'], 'uploads/' . $_FILES['f']['name']);
 // ✅
 $finfo = new finfo(FILEINFO_MIME_TYPE);
-$mime  = $finfo->file($_FILES['f']['tmp_name']);           // pas $_FILES['f']['type'] (fourni par le client)
+$mime  = $finfo->file($_FILES['f']['tmp_name']);           // not $_FILES['f']['type'] (client-supplied)
 $ext   = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'application/pdf' => 'pdf'][$mime] ?? null;
 if (!$ext || $_FILES['f']['size'] > 5_000_000) { http_response_code(400); exit; }
-$nom = bin2hex(random_bytes(16)) . '.' . $ext;             // nom régénéré
-move_uploaded_file($_FILES['f']['tmp_name'], __DIR__ . '/../storage/' . $nom); // hors webroot
+$nom = bin2hex(random_bytes(16)) . '.' . $ext;             // regenerated name
+move_uploaded_file($_FILES['f']['tmp_name'], __DIR__ . '/../storage/' . $nom); // outside webroot
 ```
-- Dossier d'upload dans le webroot sans `.htaccess` bloquant PHP → upload de `shell.php` = Critique.
+- Upload folder in the webroot without a `.htaccess` blocking PHP → upload of `shell.php` = Critical.
 ```apache
 # uploads/.htaccess
 php_flag engine off
@@ -82,9 +82,9 @@ php_flag engine off
   Require all denied
 </FilesMatch>
 ```
-- Liste noire d'extensions (`!= 'php'`) contournable (`.phtml`, `.php5`, `.PhP`, double extension).
+- Extension denylist (`!= 'php'`) bypassable (`.phtml`, `.php5`, `.PhP`, double extension).
 
-## P6. include/require avec entrée utilisateur — Critique (A03)
+## P6. include/require with user input — Critical (A03)
 ```php
 // ❌
 include $_GET['page'] . '.php';             // ../../etc/passwd%00, php://filter, ...
@@ -93,9 +93,9 @@ $pages = ['accueil', 'contact', 'produits'];
 $page = in_array($_GET['page'] ?? '', $pages, true) ? $_GET['page'] : 'accueil';
 include __DIR__ . "/pages/$page.php";
 ```
-- Idem `file_get_contents`, `readfile`, `fopen` avec chemin utilisateur → lecture de fichiers arbitraires.
+- Same for `file_get_contents`, `readfile`, `fopen` with a user path → arbitrary file read.
 
-## P7. Mots de passe en md5/sha1 — Haute (A02)
+## P7. Passwords in md5/sha1 — High (A02)
 ```php
 // ❌
 $hash = md5($_POST['password']);
@@ -104,37 +104,37 @@ if (sha1($pwd) === $row['password']) ...
 $hash = password_hash($_POST['password'], PASSWORD_DEFAULT);
 if (password_verify($_POST['password'], $row['password'])) { /* + password_needs_rehash */ }
 ```
-- Comparaison `==` entre hash (« magic hashes » `0e...`) → utiliser `hash_equals` ou `password_verify`.
+- `==` comparison between hashes ("magic hashes" `0e...`) → use `hash_equals` or `password_verify`.
 
-## P8. Identifiants BDD en dur — Haute (A02)
+## P8. Hardcoded DB credentials — High (A02)
 ```php
-// ❌ config.php commité
-$pdo = new PDO('mysql:host=localhost;dbname=app', 'root', 'MonMotDePasse');
+// ❌ committed config.php
+$pdo = new PDO('mysql:host=localhost;dbname=app', 'root', 'MyPassword');
 // ✅
 $pdo = new PDO($_ENV['DB_DSN'], $_ENV['DB_USER'], $_ENV['DB_PASS'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 ```
-- `root` sans mot de passe en local : Basse ; vrai mot de passe de prod dans le dépôt : Critique.
-- Utilisateur BDD de l'application = `root` / tous privilèges → Moyenne.
+- `root` without a password locally: Low; real production password in the repo: Critical.
+- Application DB user = `root` / all privileges → Medium.
 
-## P9. `display_errors` actif — Moyenne (A05)
-`ini_set('display_errors', 1)` ou `display_errors = On` hors environnement de dev : fuite de chemins, requêtes SQL, identifiants.
+## P9. `display_errors` enabled — Medium (A05)
+`ini_set('display_errors', 1)` or `display_errors = On` outside a dev environment: leaks paths, SQL queries, credentials.
 ```php
 // ✅
 ini_set('display_errors', '0'); ini_set('log_errors', '1');
 ```
-- `die(mysqli_error($conn))` / `echo $e->getMessage()` sur une exception PDO → même problème.
+- `die(mysqli_error($conn))` / `echo $e->getMessage()` on a PDO exception → same problem.
 
-## P10. Exécution de code / commandes — Critique (A03)
-`eval`, `assert` (PHP < 8), `system`, `exec`, `shell_exec`, `passthru`, backticks, `preg_replace` avec `/e` : entrée utilisateur → RCE. Correctif : supprimer ou `escapeshellarg` + liste blanche.
+## P10. Code / command execution — Critical (A03)
+`eval`, `assert` (PHP < 8), `system`, `exec`, `shell_exec`, `passthru`, backticks, `preg_replace` with `/e`: user input → RCE. Fix: remove, or `escapeshellarg` + allowlist.
 
-## P11. Désérialisation — Critique (A08)
-`unserialize($_COOKIE[...])` → injection d'objets. Utiliser `json_decode`.
+## P11. Deserialization — Critical (A08)
+`unserialize($_COOKIE[...])` → object injection. Use `json_decode`.
 
-## P12. `extract($_POST)` / register_globals simulés — Haute (A01)
-Écrase `$is_admin`, `$user_id`… Supprimer et lire explicitement les champs.
+## P12. `extract($_POST)` / emulated register_globals — High (A01)
+Overwrites `$is_admin`, `$user_id`… Remove and read the fields explicitly.
 
-## P13. Contrôle d'accès — Haute (A01)
-Pages `admin/*.php` sans vérification de session en tête ; `header('Location: login.php')` **sans `exit;`** après → le reste de la page s'exécute quand même.
+## P13. Access control — High (A01)
+`admin/*.php` pages without a session check at the top; `header('Location: login.php')` **without `exit;`** afterwards → the rest of the page still executes.
 ```php
 // ❌
 if (!isset($_SESSION['admin'])) header('Location: login.php');
@@ -142,8 +142,8 @@ if (!isset($_SESSION['admin'])) header('Location: login.php');
 if (empty($_SESSION['admin'])) { header('Location: login.php'); exit; }
 ```
 
-## P14. Redirection ouverte et en-têtes — Basse à Moyenne
-`header('Location: ' . $_GET['url'])` ; absence de `X-Frame-Options`, `X-Content-Type-Options` ; `expose_php = On`.
+## P14. Open redirect and headers — Low to Medium
+`header('Location: ' . $_GET['url'])`; missing `X-Frame-Options`, `X-Content-Type-Options`; `expose_php = On`.
 
-## P15. Fichiers exposés — Moyenne à Haute (A05)
-`phpinfo()` accessible, `.git/` servi par Apache, sauvegardes `*.sql`, `*.bak`, `config.php~` dans le webroot, `composer.json`/`vendor/` accessibles.
+## P15. Exposed files — Medium to High (A05)
+Accessible `phpinfo()`, `.git/` served by Apache, backups `*.sql`, `*.bak`, `config.php~` in the webroot, accessible `composer.json`/`vendor/`.

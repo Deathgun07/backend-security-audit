@@ -1,8 +1,8 @@
-# Checklist Node.js (Express, Fastify, Koa, Hono, NestJS)
+# Node.js checklist (Express, Fastify, Koa, Hono, NestJS)
 
-Pour les projets Node **hors Next.js** (Next.js : `nextjs.md`). Fichiers à lire : `server.js`/`app.js`/`index.ts`, `routes/`, `controllers/`, `middleware/`, `models/`, `db.js`, config.
+For Node projects **other than Next.js** (Next.js: `nextjs.md`). Files to read: `server.js`/`app.js`/`index.ts`, `routes/`, `controllers/`, `middleware/`, `models/`, `db.js`, config.
 
-## E1. Routes sans middleware d'auth / IDOR — Critique (A01)
+## E1. Routes without auth middleware / IDOR — Critical (A01)
 ```js
 // ❌
 router.get("/orders/:id", async (req, res) => res.json(await Order.findById(req.params.id)));
@@ -13,10 +13,10 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
   res.json(order);
 });
 ```
-- Ordre des `app.use` : une route déclarée **avant** `app.use(requireAuth)` n'est pas protégée.
-- NestJS : contrôleur sans `@UseGuards(...)` ni guard global.
+- Order of `app.use`: a route declared **before** `app.use(requireAuth)` is not protected.
+- NestJS: controller without `@UseGuards(...)` and no global guard.
 
-## E2. Injection SQL — Critique (A03)
+## E2. SQL injection — Critical (A03)
 ```js
 // ❌ mysql / mysql2 / pg / knex / sequelize
 db.query("SELECT * FROM users WHERE email = '" + req.body.email + "'");
@@ -27,9 +27,9 @@ db.query("SELECT * FROM users WHERE email = ?", [req.body.email]);          // m
 pool.query("SELECT * FROM users WHERE id = $1", [req.params.id]);           // pg
 sequelize.query("... WHERE id = :id", { replacements: { id } });
 ```
-- `mysql` avec `multipleStatements: true` aggrave toute injection.
+- `mysql` with `multipleStatements: true` makes any injection worse.
 
-## E3. Injection NoSQL (MongoDB) — Haute (A03)
+## E3. NoSQL injection (MongoDB) — High (A03)
 ```js
 // ❌ body = { "email": "a@b.c", "password": { "$ne": null } }
 User.findOne({ email: req.body.email, password: req.body.password });
@@ -38,47 +38,47 @@ const { email, password } = z.object({ email: z.string().email(), password: z.st
 const user = await User.findOne({ email: String(email) });
 if (!user || !(await bcrypt.compare(password, user.passwordHash))) return res.sendStatus(401);
 ```
-- `$where` avec une entrée utilisateur → Critique. `mongoose.set("sanitizeFilter", true)` ou `express-mongo-sanitize`.
+- `$where` with user input → Critical. `mongoose.set("sanitizeFilter", true)` or `express-mongo-sanitize`.
 
-## E4. Mass assignment — Haute (A01)
-`User.create(req.body)`, `Object.assign(user, req.body)`, `User.findByIdAndUpdate(id, req.body)` → `role`, `isAdmin` modifiables. Valider avec zod/joi et choisir les champs.
+## E4. Mass assignment — High (A01)
+`User.create(req.body)`, `Object.assign(user, req.body)`, `User.findByIdAndUpdate(id, req.body)` → `role`, `isAdmin` are writable. Validate with zod/joi and pick the fields explicitly.
 
-## E5. JWT — Critique (A07)
-- `jwt.verify(token, secret)` sans `{ algorithms: ["HS256"] }` avec une clé publique RSA → confusion d'algorithme.
-- `jwt.decode()` utilisé pour authentifier (pas de vérification de signature) → Critique.
-- Secret en dur / faible (`"secret"`, `"changeme"`) → Haute.
-- Pas d'expiration (`expiresIn`) → Basse.
+## E5. JWT — Critical (A07)
+- `jwt.verify(token, secret)` without `{ algorithms: ["HS256"] }` using an RSA public key → algorithm confusion.
+- `jwt.decode()` used to authenticate (no signature verification) → Critical.
+- Hardcoded / weak secret (`"secret"`, `"changeme"`) → High.
+- No expiration (`expiresIn`) → Low.
 
-## E6. En-têtes, CORS, cookies — Moyenne (A05)
+## E6. Headers, CORS, cookies — Medium (A05)
 ```js
 // ❌
-app.use(cors());                                   // toutes origines
-app.use(cors({ origin: true, credentials: true })); // reflète toute origine avec cookies → Haute
+app.use(cors());                                   // all origins
+app.use(cors({ origin: true, credentials: true })); // reflects any origin with cookies → High
 // ✅
 app.use(helmet());
 app.use(cors({ origin: ["https://app.example.ci"], credentials: true }));
 app.use(session({ secret: process.env.SESSION_SECRET, cookie: { httpOnly: true, secure: true, sameSite: "lax" } }));
 ```
-- `app.disable("x-powered-by")` ou `helmet()`.
+- `app.disable("x-powered-by")` or `helmet()`.
 
-## E7. Path traversal / fichiers — Haute (A01)
-`res.sendFile(path.join(__dirname, "uploads", req.query.f))` → `path.resolve` + vérification du préfixe, ou `res.sendFile(name, { root: UPLOAD_DIR })` avec `path.basename`.
-- Multer : `fileFilter` (MIME + extension), `limits.fileSize`, noms générés, dossier non servi par `express.static` si contenus HTML/SVG.
+## E7. Path traversal / files — High (A01)
+`res.sendFile(path.join(__dirname, "uploads", req.query.f))` → `path.resolve` + prefix check, or `res.sendFile(name, { root: UPLOAD_DIR })` with `path.basename`.
+- Multer: `fileFilter` (MIME + extension), `limits.fileSize`, generated names, a folder not served by `express.static` if it holds HTML/SVG content.
 
-## E8. Exécution de code / commandes — Critique (A03/A08)
-`eval`, `new Function`, `vm.runInNewContext` (pas un bac à sable), `child_process.exec` avec interpolation, `node-serialize.unserialize` → utiliser `execFile` avec tableau d'arguments, `JSON.parse`.
+## E8. Code / command execution — Critical (A03/A08)
+`eval`, `new Function`, `vm.runInNewContext` (not a sandbox), `child_process.exec` with interpolation, `node-serialize.unserialize` → use `execFile` with an argument array, `JSON.parse`.
 
-## E9. Prototype pollution — Moyenne (A08)
-Fusion récursive maison (`merge(target, req.body)`), `lodash.merge`/`_.set` avec chemins utilisateur, anciennes versions de `lodash` < 4.17.21.
+## E9. Prototype pollution — Medium (A08)
+Homemade recursive merge (`merge(target, req.body)`), `lodash.merge`/`_.set` with user-controlled paths, older `lodash` versions < 4.17.21.
 
-## E10. SSRF — Haute (A10)
-`axios.get(req.query.url)`, `fetch(req.body.webhook)` → liste blanche, refus des IP privées/metadata.
+## E10. SSRF — High (A10)
+`axios.get(req.query.url)`, `fetch(req.body.webhook)` → allowlist, reject private/metadata IPs.
 
-## E11. Erreurs — Basse (A09)
-Handler d'erreur renvoyant `err.stack`/`err.message` ; `NODE_ENV` non défini à `production` (Express affiche la stack).
+## E11. Errors — Low (A09)
+Error handler returning `err.stack`/`err.message`; `NODE_ENV` not set to `production` (Express shows the stack).
 
-## E12. Rate limiting — Moyenne (A07)
-Login/OTP/reset sans `express-rate-limit`, `@fastify/rate-limit`, `@nestjs/throttler`.
+## E12. Rate limiting — Medium (A07)
+Login/OTP/reset without `express-rate-limit`, `@fastify/rate-limit`, `@nestjs/throttler`.
 
-## E13. Dépendances — variable (A06)
+## E13. Dependencies — variable (A06)
 `npm audit --omit=dev` / `bun audit` / `pnpm audit --prod`.

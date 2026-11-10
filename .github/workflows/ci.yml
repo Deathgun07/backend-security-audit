@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}${{ matrix.ripgrep && ' + ripgrep' || '' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            ripgrep: false
+          - os: ubuntu-latest
+            ripgrep: true
+          - os: macos-latest
+            ripgrep: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install ripgrep
+        if: matrix.ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Remove ripgrep (grep fallback)
+        if: ${{ !matrix.ripgrep && runner.os == 'Linux' }}
+        run: sudo rm -f "$(command -v rg)" || true
+
+      - name: Install bash 4+ (macOS)
+        if: runner.os == 'macOS'
+        run: brew install bash && echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+
+      - name: Detection scripts
+        run: bash tests/run_tests.sh
+
+      - name: Installers (npx CLI + install.sh)
+        run: bash tests/test_cli.sh
+
+      - name: Plugin manifests are valid JSON
+        run: |
+          node -e "for (const f of ['.claude-plugin/plugin.json','.claude-plugin/marketplace.json','package.json']) JSON.parse(require('fs').readFileSync(f,'utf8'))"
+          node -e "const p=require('./package.json'),a=require('./.claude-plugin/plugin.json'),m=require('./.claude-plugin/marketplace.json'); if(p.version!==a.version||p.version!==m.plugins[0].version){console.error('version mismatch',p.version,a.version,m.plugins[0].version);process.exit(1)}"
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck -S warning install.sh skills/backend-security-audit/scripts/*.sh tests/*.sh

@@ -1,28 +1,28 @@
-# Checklist Django (et Django REST Framework)
+# Django checklist (and Django REST Framework)
 
-Fichiers à lire en priorité : `settings.py` (ou `settings/`), `urls.py`, `views.py`, `serializers.py`, `forms.py`, `models.py`, templates, `middleware`, `Dockerfile`, `.env`.
+Files to read first: `settings.py` (or `settings/`), `urls.py`, `views.py`, `serializers.py`, `forms.py`, `models.py`, templates, `middleware`, `Dockerfile`, `.env`.
 
-## D1. `DEBUG = True` en production — Haute (A05)
-Pages d'erreur avec settings, variables d'environnement partielles, requêtes SQL, chemins.
+## D1. `DEBUG = True` in production — High (A05)
+Error pages leak settings, partial environment variables, SQL queries, and paths.
 ```python
 # ❌
 DEBUG = True
 # ✅
 DEBUG = os.environ.get("DJANGO_DEBUG") == "1"
 ```
-- « Confirmé » si c'est le fichier de settings de prod ; sinon « à vérifier » (fichiers `settings/dev.py` vs `prod.py`).
+- "Confirmed" if it is the production settings file; otherwise "to verify manually" (`settings/dev.py` vs `prod.py`).
 
-## D2. `SECRET_KEY` en dur — Haute (A02)
-`SECRET_KEY = 'django-insecure-…'` commité → forge de sessions signées, tokens de reset de mot de passe, cookies signés.
+## D2. Hardcoded `SECRET_KEY` — High (A02)
+A committed `SECRET_KEY = 'django-insecure-…'` allows forging signed sessions, password reset tokens, and signed cookies.
 ```python
 # ✅
 SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 ```
 
-## D3. `ALLOWED_HOSTS = ['*']` — Moyenne (A05)
-Empoisonnement de l'en-tête Host → liens de réinitialisation de mot de passe vers un domaine pirate. Lister les domaines.
+## D3. `ALLOWED_HOSTS = ['*']` — Medium (A05)
+Host header poisoning → password reset links pointing to an attacker's domain. List the domains explicitly.
 
-## D4. Injection SQL — Critique (A03)
+## D4. SQL injection — Critical (A03)
 ```python
 # ❌
 User.objects.raw(f"SELECT * FROM auth_user WHERE username = '{name}'")
@@ -34,9 +34,9 @@ User.objects.raw("SELECT * FROM auth_user WHERE username = %s", [name])
 cursor.execute("SELECT * FROM t WHERE id = %s", [pk])
 User.objects.filter(username=name)
 ```
-- `order_by(request.GET["sort"])` : liste blanche des champs (fuite via tri sur champs privés).
+- `order_by(request.GET["sort"])`: allowlist the fields (leak through sorting on private fields).
 
-## D5. Contrôle d'accès / IDOR — Haute (A01)
+## D5. Access control / IDOR — High (A01)
 ```python
 # ❌
 def invoice(request, pk):
@@ -47,48 +47,48 @@ def invoice(request, pk):
     inv = get_object_or_404(Invoice, pk=pk, owner=request.user)
     return render(request, "invoice.html", {"inv": inv})
 ```
-- DRF : `get_queryset()` doit filtrer par `self.request.user` ; `queryset = Model.objects.all()` + `ModelViewSet` sans filtre = IDOR.
-- `permission_classes = [AllowAny]` ou `DEFAULT_PERMISSION_CLASSES` absent/`AllowAny` → Haute.
-- Vues admin custom sans `@staff_member_required` / `user.is_staff`.
+- DRF: `get_queryset()` must filter by `self.request.user`; `queryset = Model.objects.all()` + an unfiltered `ModelViewSet` = IDOR.
+- `permission_classes = [AllowAny]` or `DEFAULT_PERMISSION_CLASSES` missing/`AllowAny` → High.
+- Custom admin views without `@staff_member_required` / `user.is_staff`.
 
-## D6. Mass assignment — Haute (A01)
+## D6. Mass assignment — High (A01)
 ```python
 # ❌
 class UserSerializer(serializers.ModelSerializer):
-    class Meta: model = User; fields = "__all__"        # is_staff, is_superuser modifiables
+    class Meta: model = User; fields = "__all__"        # is_staff, is_superuser are writable
 # ✅
     class Meta: model = User; fields = ["id", "first_name", "last_name"]; read_only_fields = ["id"]
 ```
-Idem `ModelForm` avec `fields = "__all__"` ou `exclude`.
+Same for `ModelForm` with `fields = "__all__"` or `exclude`.
 
-## D7. CSRF désactivé — Moyenne (A01)
-`@csrf_exempt` sur une vue qui modifie l'état avec auth par cookie ; `django.middleware.csrf.CsrfViewMiddleware` retiré de `MIDDLEWARE`.
-- Exception acceptable : webhook vérifiant une signature HMAC.
+## D7. CSRF disabled — Medium (A01)
+`@csrf_exempt` on a state-changing view with cookie auth; `django.middleware.csrf.CsrfViewMiddleware` removed from `MIDDLEWARE`.
+- Acceptable exception: a webhook that verifies an HMAC signature.
 
-## D8. XSS — Moyenne (A03)
-`mark_safe(user_input)`, `|safe`, `{% autoescape off %}`, `format_html` mal utilisé (`format_html(f"...{x}")`).
+## D8. XSS — Medium (A03)
+`mark_safe(user_input)`, `|safe`, `{% autoescape off %}`, misused `format_html` (`format_html(f"...{x}")`).
 
-## D9. Réglages HTTPS / cookies — Basse à Moyenne (A05)
+## D9. HTTPS / cookie settings — Low to Medium (A05)
 ```python
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")   # si derrière un proxy
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")   # if behind a proxy
 ```
-`python manage.py check --deploy` liste ces points : le proposer à l'utilisateur (commande locale, lecture seule).
+`python manage.py check --deploy` lists these points: suggest it to the user (local, read-only command).
 
-## D10. CORS — Moyenne (A05)
-`CORS_ALLOW_ALL_ORIGINS = True` (ou `CORS_ORIGIN_ALLOW_ALL`) avec `CORS_ALLOW_CREDENTIALS = True` → Haute.
+## D10. CORS — Medium (A05)
+`CORS_ALLOW_ALL_ORIGINS = True` (or `CORS_ORIGIN_ALLOW_ALL`) with `CORS_ALLOW_CREDENTIALS = True` → High.
 
-## D11. Hachage des mots de passe — Haute (A02)
-`PASSWORD_HASHERS` contenant `MD5PasswordHasher`, `UnsaltedMD5PasswordHasher`, `SHA1PasswordHasher` en premier. Garder `PBKDF2`/`Argon2`.
+## D11. Password hashing — High (A02)
+`PASSWORD_HASHERS` listing `MD5PasswordHasher`, `UnsaltedMD5PasswordHasher`, or `SHA1PasswordHasher` first. Keep `PBKDF2`/`Argon2`.
 
-## D12. Fichiers et uploads — Moyenne à Haute (A04)
-`MEDIA_ROOT` servi par Django en prod (`static()` dans `urls.py` hors `DEBUG`), `FileField` sans validation d'extension/taille, `open(os.path.join(BASE, request.GET["f"]))` → path traversal (Haute).
+## D12. Files and uploads — Medium to High (A04)
+`MEDIA_ROOT` served by Django in production (`static()` in `urls.py` outside `DEBUG`), `FileField` without extension/size validation, `open(os.path.join(BASE, request.GET["f"]))` → path traversal (High).
 
-## D13. Désérialisation / commandes — Critique (A08/A03)
-`pickle.loads`, `yaml.load`, `subprocess(..., shell=True)`, `eval` avec entrée utilisateur (mêmes règles que Flask).
+## D13. Deserialization / commands — Critical (A08/A03)
+`pickle.loads`, `yaml.load`, `subprocess(..., shell=True)`, `eval` with user input (same rules as Flask).
 
-## D14. Rate limiting — Moyenne (A07)
-Login, reset password, OTP sans `django-ratelimit` / `django-axes` / throttling DRF (`DEFAULT_THROTTLE_CLASSES`).
+## D14. Rate limiting — Medium (A07)
+Login, password reset, OTP without `django-ratelimit` / `django-axes` / DRF throttling (`DEFAULT_THROTTLE_CLASSES`).

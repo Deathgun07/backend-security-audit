@@ -1,103 +1,104 @@
 ---
 name: backend-security-audit
-description: Read-only backend security audit of a local project (Supabase, Firebase, PocketBase, MySQL/MariaDB, Next.js, Node/Express, PHP, Laravel, Flask, FastAPI, Django, Go) producing SECURITY_AUDIT.md with evidence (file:line) and fixes as diffs. Use when the user asks to audit security, find vulnerabilities, check RLS / policies / Firebase Security Rules / PocketBase API rules / MySQL accounts, look for exposed secrets or SQL injections, or types /backend-security-audit. Also in French — « audite la sécurité », « cherche les failles », « vérifie la RLS ». Not for attacking third-party systems nor for reviewing a diff.
+description: Read-only backend security audit of a local project (Supabase, Firebase, PocketBase, MySQL/MariaDB, Next.js, Node/Express, PHP, Laravel, Flask, FastAPI, Django, Go) producing SECURITY_AUDIT.md with evidence (file:line) and fixes as diffs. Use when the user asks to audit security, find vulnerabilities, check RLS / policies / Firebase Security Rules / PocketBase API rules / MySQL accounts, look for exposed secrets or SQL injections, or types /backend-security-audit. Also triggers in other languages, e.g. French « audite la sécurité », « cherche les failles », Spanish « audita la seguridad », Portuguese « audite a segurança ». Not for attacking third-party systems nor for reviewing a diff.
 ---
 
-# Audit de sécurité backend
+# Backend security audit
 
-`SKILL_DIR` = dossier de ce fichier. `CIBLE` = racine du projet audité (dossier courant, sauf indication contraire).
+`SKILL_DIR` = directory of this file. `TARGET` = root of the audited project (current directory unless told otherwise).
 
-## Règles absolues
+## Absolute rules
 
-1. **Lecture seule.** Ne jamais modifier, formater, installer ni committer quoi que ce soit dans le projet audité. Seule écriture autorisée : `CIBLE/SECURITY_AUDIT.md`. Les correctifs sont proposés en **diff minimal** dans le rapport.
-2. **Preuve obligatoire.** Chaque faille cite `fichier:ligne` + un extrait exact relu avec Read. Pas de preuve → pas de faille. Une sortie de script n'est jamais une preuve à elle seule : relire le code.
-3. **Deux statuts seulement** :
-   - **Confirmé** : le chemin vulnérable est visible de bout en bout dans le code (source contrôlée par l'attaquant → sink, sans contrôle intermédiaire).
-   - **À vérifier manuellement** : dépend d'un élément hors dépôt (config dashboard, variable d'env de prod, reverse proxy, version déployée). Dire précisément quoi vérifier et comment.
-4. **Aucune action offensive.** Pas de requête vers un serveur, une API ou une URL de production, pas de scan réseau, pas d'exploitation. `scan_rls.sql` / `scan_mysql.sql` ne s'exécutent que sur **la base de l'utilisateur**, avec son accord explicite et la chaîne de connexion qu'il fournit (base locale de préférence).
-5. **Secrets masqués** dans le rapport et dans les réponses : 6 premiers caractères puis `…****`.
-6. **Langue** : rédiger le rapport et les réponses dans la langue de la demande de l'utilisateur (titres du modèle `templates/rapport.md` traduits, nom de fichier inchangé : `SECURITY_AUDIT.md`). Les checklists sont en français : les traduire au besoin, ne jamais les citer telles quelles à un utilisateur non francophone.
+1. **Read-only.** Never modify, format, install or commit anything in the audited project. The only allowed write is `TARGET/SECURITY_AUDIT.md`. Fixes are proposed as **minimal diffs** in the report.
+2. **Evidence required.** Every finding cites `file:line` plus an exact excerpt re-read with your file-reading tool. No evidence → no finding. Script output alone is never evidence: re-read the code.
+3. **Two statuses only**:
+   - **Confirmed**: the vulnerable path is visible end to end in the code (attacker-controlled source → sink, with no check in between).
+   - **To verify manually**: depends on something outside the repository (dashboard settings, production env vars, reverse proxy, deployed version). State exactly what to check and how.
+4. **No offensive action.** No requests to production servers, APIs or URLs, no network scanning, no exploitation. `scan_rls.sql` / `scan_mysql.sql` run only against **the user's own database**, with their explicit consent and a connection string they provide (local database preferred).
+5. **Mask secrets** in the report and in replies: first 6 characters then `…****`.
+6. **Language**: write the report and replies in the language of the user's request (translate the headings of `templates/report.md`; keep the file name `SECURITY_AUDIT.md`). Severity and status names are translated too.
 
 ## Workflow
 
-### 1. Détecter le stack
+### 1. Detect the stack
 ```bash
-bash "$SKILL_DIR/scripts/detect_stack.sh" "$CIBLE"
+bash "$SKILL_DIR/scripts/detect_stack.sh" "$TARGET"
 ```
-Noter `stacks`, `lockfiles`, `outils_disponibles`, le commit courant (`git -C "$CIBLE" rev-parse --short HEAD`).
-Si `racine_git` ≠ `CIBLE` (projet dans un dépôt parent), restreindre toutes les commandes git à `CIBLE`.
-Si aucun stack n'est détecté : le dire, appliquer seulement la checklist commune.
+Note `stacks`, `lockfiles`, `available_tools`, and the current commit (`git -C "$TARGET" rev-parse --short HEAD`).
+If `git_root` ≠ `TARGET` (project inside a parent repository), restrict every git command to `TARGET`.
+If no stack is detected: say so and apply only the common checklist.
 
-### 2. Charger les checklists
-Lire `checklists/commun.md` **toujours**, puis **uniquement** celles des stacks détectés :
+### 2. Load the checklists
+Always read `checklists/common.md`, then **only** those of the detected stacks:
 
-| Stack détecté | Checklist |
+| Detected stack | Checklist |
 |---|---|
 | `supabase` | `supabase.md` |
 | `firebase` | `firebase.md` |
 | `pocketbase` | `pocketbase.md` |
-| `mysql` | `mysql.md` (la base elle-même, quel que soit le langage) |
+| `mysql` | `mysql.md` (the database itself, whatever the language) |
 | `nextjs` | `nextjs.md` |
 | `node-express` | `node-express.md` (Express, Fastify, Koa, Hono, NestJS) |
-| `php-mysql` | `php-mysql.md` (tout code PHP) |
-| `laravel` | `laravel.md` (en plus de `php-mysql.md`) |
-| `flask`, `fastapi` | `flask.md` (sections Flask et FastAPI) |
+| `php-mysql` | `php-mysql.md` (any PHP code) |
+| `laravel` | `laravel.md` (in addition to `php-mysql.md`) |
+| `flask`, `fastapi` | `flask.md` (Flask and FastAPI sections) |
 | `django` | `django.md` |
 | `go` | `go.md` |
 
-Ne pas lire les autres. Stack non couvert (Rails, Spring, ASP.NET…) : appliquer `commun.md` + les principes OWASP des checklists proches, et le signaler dans « Non vérifié ».
+Do not read the others. Uncovered stack (Rails, Spring, ASP.NET…): apply `common.md` plus the OWASP principles of the closest checklists, and say so under "Not verified".
 
-### 3. Lancer les scripts de détection
+### 3. Run the detection scripts
 ```bash
-bash "$SKILL_DIR/scripts/find_secrets.sh"  "$CIBLE"
-bash "$SKILL_DIR/scripts/grep_patterns.sh" "$CIBLE" "<stacks séparés par des virgules>"
+bash "$SKILL_DIR/scripts/find_secrets.sh"  "$TARGET"
+bash "$SKILL_DIR/scripts/grep_patterns.sh" "$TARGET" "<comma-separated stacks>"
 ```
-Format : `fichier:ligne:pattern:sévérité`. Ce sont des **pistes** : les trier une par une (faille / faux positif / à vérifier).
-Les lignes `Info` (`route_api_a_verifier`, `server_action_a_verifier`…) servent d'inventaire pour l'étape 4.
+Format: `file:line:pattern:severity`. These are **leads**: triage them one by one (finding / false positive / to verify).
+`Info` lines (`api_route_to_check`, `server_action_to_check`…) are an inventory for step 4.
 
-Audit des dépendances, seulement si l'outil est disponible (lecture du lockfile) :
+Dependency audit, only if the tool is available (reads the lockfile):
 `bun audit` · `npm audit --omit=dev` · `composer audit` · `pip-audit -r requirements.txt` · `govulncheck ./...`.
-Absent → entrée « à vérifier » avec la commande.
+Tool missing → "to verify" entry with the command.
 
-Bases de données (voir règle 4, toujours avec l'accord de l'utilisateur) :
-- Supabase / Postgres : `scripts/scan_rls.sql`. Sans accès, analyser `supabase/migrations/*.sql` dans l'ordre chronologique.
-- MySQL / MariaDB : `scripts/scan_mysql.sql` (`mysql -u root -p -t < scan_mysql.sql`). Sans accès, analyser `*.sql`, `docker-compose*.yml`, `*.cnf`.
-- Firebase : les rules du dépôt peuvent différer de celles déployées → statut « à vérifier » si aucune preuve de déploiement.
+Databases (see rule 4, always with the user's consent):
+- Supabase / Postgres: `scripts/scan_rls.sql`. Without access, analyze `supabase/migrations/*.sql` in chronological order.
+- MySQL / MariaDB: `scripts/scan_mysql.sql` (`mysql -u root -p -t < scan_mysql.sql`). Without access, analyze `*.sql`, `docker-compose*.yml`, `*.cnf`.
+- Firebase: rule files referenced by `firebase.json` are what `firebase deploy` ships → findings in them are **Confirmed** (add a note that the console may hold newer rules); rule files not referenced anywhere → "to verify". Cloud Functions code follows the normal rules.
 
-### 4. Analyse manuelle des fichiers sensibles
-Lister puis **lire** (pas seulement grep) :
+### 4. Manual review of sensitive files
+List, then **read** (not just grep):
 ```bash
-cd "$CIBLE" && git ls-files 2>/dev/null | grep -iE 'auth|login|session|middleware|proxy\.ts|route\.(ts|js)$|/api/|actions?\.(ts|js)$|upload|admin|db|database|sql|query|config|hooks?/|pb_hooks|pb_migrations|policy|rls|\.rules(\.json)?$|functions/|settings\.py|urls\.py|serializers?\.py|\.go$|controllers?/|routes?/|docker-compose|\.cnf$|\.php$|app\.py|main\.py|views?\.py' | grep -v node_modules
+cd "$TARGET" && git ls-files 2>/dev/null | grep -iE 'auth|login|session|middleware|proxy\.ts|route\.(ts|js)$|/api/|actions?\.(ts|js)$|upload|admin|db|database|sql|query|config|hooks?/|pb_hooks|pb_migrations|policy|rls|\.rules(\.json)?$|functions/|settings\.py|urls\.py|serializers?\.py|\.go$|controllers?/|routes?/|docker-compose|\.cnf$|\.php$|\.pb\.js$|views?/|app\.py|main\.py|views?\.py|package\.json$|next\.config' | grep -v node_modules
 ```
-Sans git : `find` équivalent en excluant `node_modules vendor .next dist venv`.
-Pour chaque fichier, dérouler la checklist chargée. Priorités :
-- **Auth** : comment la session est lue et vérifiée côté serveur ; qui peut appeler chaque route / action / RPC.
-- **Autorisation** : chaque ID venant du client est-il filtré par propriétaire ? (IDOR)
-- **Requêtes** : paramétrées ou concaténées ? Suivre la variable jusqu'à sa source.
-- **Upload** : type, taille, nom, emplacement, exécution.
-- **Middleware** : couverture réelle du matcher, contournements.
-- **Règles d'accès BDD** : RLS, Firebase Security Rules, API rules PocketBase, comptes et GRANT MySQL : prendre la **dernière** migration qui touche chaque table/collection.
-- **Rate limiting** sur login, OTP, reset password.
+Without git: equivalent `find`, excluding `node_modules vendor .next dist venv`.
+For each file, walk through the loaded checklist. Priorities:
+- **Authentication**: how the session is read and verified server-side; who can call each route / action / RPC.
+- **Authorization**: is every client-supplied ID filtered by owner? (IDOR)
+- **Queries**: parameterized or concatenated? Follow the variable back to its source.
+- **Uploads**: type, size, name, location, execution.
+- **Middleware**: actual matcher coverage, bypasses.
+- **Database access rules**: RLS, Firebase Security Rules, PocketBase API rules, MySQL accounts and GRANTs: use the **latest** migration touching each table/collection.
+- **Rate limiting** on login, OTP, password reset.
 
-Suivre les appels entre fichiers avant de conclure à une absence de contrôle (un helper peut faire la vérification).
-Pour les grosses bases de code, déléguer la lecture par zone à des sous-agents `Explore`, puis vérifier soi-même chaque faille remontée.
+Follow calls across files before concluding that a check is missing (a helper may do it).
+For large codebases, delegate reading by area to sub-agents if your environment supports them, then verify every reported finding yourself.
 
-### 5. Évaluer
-- Sévérité : partir de la valeur par défaut de la checklist, ajuster selon l'exposition réelle (route publique vs admin, données personnelles vs publiques). Justifier tout écart dans « Impact ».
-- Une même cause racine répétée dans N fichiers = **une** faille listant les emplacements.
-- Score = 100 − (25×Critique + 10×Haute + 4×Moyenne + 1×Basse) pour les confirmées, moitié des poids pour « à vérifier », plancher 0.
+### 5. Assess
+- Severity: start from the checklist default, adjust to the real exposure (public vs admin route, personal vs public data). Justify any deviation in "Impact".
+- The same root cause repeated in N files of the **same stack/component** = **one** finding listing all locations (e.g. one SQL injection finding for the PHP code, another for the Go service).
+- Secrets: a value matching a real key format (`sk_live_…`, `AKIA…`, `sb_secret_…`, a JWT with `role: service_role`) in a tracked file is **Confirmed** and requires rotation, even if it might be a test value; only obvious placeholders (`xxx`, `your-key`, `changeme`) are discarded.
+- Score = 100 − (25×Critical + 10×High + 4×Medium + 1×Low) for confirmed findings, half the weights for "to verify", floor 0.
 
-### 6. Rédiger le rapport
-Copier la structure de `templates/rapport.md` dans `CIBLE/SECURITY_AUDIT.md` et la remplir :
-résumé et score, tableau récapitulatif, détail de chaque faille (ID `SEC-NN` trié par sévérité), points positifs (avec preuves), top 5 des priorités, annexes (commandes, faux positifs écartés, non vérifié).
-Si `SECURITY_AUDIT.md` existe déjà : demander avant d'écraser (ou écrire `SECURITY_AUDIT-AAAA-MM-JJ.md`).
+### 6. Write the report
+Copy the structure of `templates/report.md` into `TARGET/SECURITY_AUDIT.md` and fill it in:
+summary and score, summary table, details of each finding (ID `SEC-NN`, sorted by severity), strengths (with evidence), top 5 priorities, appendices (commands, discarded false positives, not verified).
+If `SECURITY_AUDIT.md` already exists: ask before overwriting (or write `SECURITY_AUDIT-YYYY-MM-DD.md`).
 
-### 7. Restituer
-Dans la réponse : score, nombre de failles par sévérité, les 3 plus graves en une ligne chacune, lien vers le rapport, ce qui reste « à vérifier ». Proposer d'appliquer les correctifs **seulement si l'utilisateur le demande** (hors de ce skill).
+### 7. Report back
+In your reply: score, number of findings per severity, the 3 most severe in one line each, a link to the report, and what remains "to verify". Offer to apply the fixes **only if the user asks** (outside this skill).
 
-## Faux positifs fréquents (à écarter avec justification)
-- Clé `anon` / `publishable` Supabase et config web Firebase (`apiKey: "AIza…"`) côté client : publiques par conception (Info).
-- Valeurs d'exemple : `.env.example`, `your-api-key`, `changeme`, `xxx`, fixtures de tests, documentation.
-- `listRule: ""` PocketBase / `using (true)` en SELECT sur des données réellement publiques.
-- `render_template_string` avec chaîne constante ; `md5` utilisé pour un ETag ou un cache, pas un mot de passe.
-- Code dans `tests/`, `scripts/` de dev, `seed` : sévérité réduite sauf secret réel.
+## Common false positives (discard with a justification)
+- Supabase `anon` / `publishable` key and Firebase web config (`apiKey: "AIza…"`) on the client: public by design (Info).
+- Example values: `.env.example`, `your-api-key`, `changeme`, `xxx`, test fixtures, documentation.
+- PocketBase `listRule: ""` / `using (true)` on SELECT for genuinely public data.
+- `render_template_string` with a constant string; `md5` used for an ETag or cache key, not a password.
+- Code in `tests/`, dev `scripts/`, `seed`: lower severity unless it holds a real secret.

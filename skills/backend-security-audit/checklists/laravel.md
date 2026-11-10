@@ -1,18 +1,18 @@
-# Checklist Laravel
+# Laravel checklist
 
-Complète `php-mysql.md` (toujours chargée avec celle-ci). Fichiers à lire : `routes/web.php`, `routes/api.php`, `app/Http/Controllers/`, `app/Http/Middleware/`, `bootstrap/app.php` (Laravel 11+), `app/Http/Kernel.php` (≤ 10), `app/Models/`, `app/Policies/`, `config/`, `.env`.
+Complements `php-mysql.md` (always loaded alongside this one). Files to read: `routes/web.php`, `routes/api.php`, `app/Http/Controllers/`, `app/Http/Middleware/`, `bootstrap/app.php` (Laravel 11+), `app/Http/Kernel.php` (≤ 10), `app/Models/`, `app/Policies/`, `config/`, `.env`.
 
-## L1. `APP_DEBUG=true` / `.env` exposé — Critique (A05)
-Page d'erreur Ignition : variables d'environnement, `APP_KEY`, identifiants BDD ; anciennes versions d'Ignition (< 2.5.2) vulnérables à une RCE (CVE-2021-3129).
+## L1. `APP_DEBUG=true` / exposed `.env` — Critical (A05)
+Ignition error page: environment variables, `APP_KEY`, DB credentials; older Ignition versions (< 2.5.2) are vulnerable to RCE (CVE-2021-3129).
 ```diff
 -APP_ENV=local
 -APP_DEBUG=true
 +APP_ENV=production
 +APP_DEBUG=false
 ```
-- `APP_KEY` commité → déchiffrement des cookies/sessions, et RCE possible via désérialisation de cookies chiffrés (Critique).
+- Committed `APP_KEY` → decryption of cookies/sessions, and possible RCE through deserialization of encrypted cookies (Critical).
 
-## L2. Requêtes brutes — Critique (A03)
+## L2. Raw queries — Critical (A03)
 ```php
 // ❌
 DB::select("SELECT * FROM users WHERE email = '$email'");
@@ -23,9 +23,9 @@ DB::select('SELECT * FROM users WHERE email = ?', [$email]);
 User::where('name', $request->name)->get();
 $q->orderBy(in_array($request->sort, ['name', 'created_at'], true) ? $request->sort : 'created_at');
 ```
-`DB::raw`, `selectRaw`, `whereRaw`, `havingRaw`, `orderByRaw`, `DB::statement`, `DB::unprepared` avec variable → à tracer jusqu'à la source.
+`DB::raw`, `selectRaw`, `whereRaw`, `havingRaw`, `orderByRaw`, `DB::statement`, `DB::unprepared` with a variable → trace to the source.
 
-## L3. Mass assignment — Haute (A01)
+## L3. Mass assignment — High (A01)
 ```php
 // ❌
 protected $guarded = [];
@@ -33,10 +33,10 @@ User::create($request->all());
 $user->update($request->all());
 // ✅
 protected $fillable = ['name', 'email'];
-$user->update($request->validated());     // FormRequest avec règles
+$user->update($request->validated());     // FormRequest with rules
 ```
 
-## L4. Autorisation / IDOR — Haute (A01)
+## L4. Authorization / IDOR — High (A01)
 ```php
 // ❌
 public function show(Invoice $invoice) { return $invoice; }
@@ -46,31 +46,31 @@ public function show(Invoice $invoice) {
     return $invoice;
 }
 ```
-- Routes hors du groupe `middleware('auth')` / `auth:sanctum` ; `withoutMiddleware('auth')`.
-- Route model binding sans scoping (`->scopeBindings()`) pour les ressources imbriquées.
+- Routes outside the `middleware('auth')` / `auth:sanctum` group; `withoutMiddleware('auth')`.
+- Route model binding without scoping (`->scopeBindings()`) for nested resources.
 
-## L5. XSS — Moyenne (A03)
-`{!! $variable !!}` avec contenu utilisateur ; `{{ }}` échappe, `{!! !!}` non. Contenus riches : HTMLPurifier (`mews/purifier`).
+## L5. XSS — Medium (A03)
+`{!! $variable !!}` with user content; `{{ }}` escapes, `{!! !!}` does not. Rich content: HTMLPurifier (`mews/purifier`).
 
-## L6. CSRF — Moyenne (A01)
-Exclusions trop larges dans `VerifyCsrfToken::$except` (ou `validateCsrfTokens(except: [...])`), par exemple `'*'` ou `'api/*'` pour des routes à auth par cookie.
+## L6. CSRF — Medium (A01)
+Overly broad exclusions in `VerifyCsrfToken::$except` (or `validateCsrfTokens(except: [...])`), for example `'*'` or `'api/*'` for routes with cookie auth.
 
-## L7. Upload — Haute (A04)
+## L7. Upload — High (A04)
 ```php
 // ✅
 $request->validate(['photo' => 'required|file|mimes:jpg,png|max:5120']);
-$path = $request->file('photo')->store('photos');        // nom généré, disque privé
+$path = $request->file('photo')->store('photos');        // generated name, private disk
 ```
-- `storeAs('public', $file->getClientOriginalName())` → nom contrôlé par l'utilisateur dans un dossier public (Haute).
+- `storeAs('public', $file->getClientOriginalName())` → user-controlled name in a public folder (High).
 
-## L8. Désérialisation / exécution — Critique (A08)
-`unserialize($request->...)`, `eval`, `Process::run("... $input")`, `shell_exec` (voir php-mysql.md).
+## L8. Deserialization / execution — Critical (A08)
+`unserialize($request->...)`, `eval`, `Process::run("... $input")`, `shell_exec` (see php-mysql.md).
 
-## L9. Rate limiting — Moyenne (A07)
-Routes de login sans `throttle:` (Breeze/Fortify le font par défaut ; vérifier les routes custom).
+## L9. Rate limiting — Medium (A07)
+Login routes without `throttle:` (Breeze/Fortify add it by default; verify custom routes).
 
-## L10. Configuration — Basse à Moyenne (A05)
-`config/cors.php` avec `'allowed_origins' => ['*']` + `'supports_credentials' => true` (Haute) ; `SESSION_SECURE_COOKIE=false` en prod ; Telescope/Horizon/Debugbar accessibles en prod sans gate.
+## L10. Configuration — Low to Medium (A05)
+`config/cors.php` with `'allowed_origins' => ['*']` + `'supports_credentials' => true` (High); `SESSION_SECURE_COOKIE=false` in production; Telescope/Horizon/Debugbar reachable in production without a gate.
 
-## L11. Dépendances — variable (A06)
-`composer audit` (lecture du `composer.lock`).
+## L11. Dependencies — variable (A06)
+`composer audit` (reads `composer.lock`).

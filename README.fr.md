@@ -8,6 +8,7 @@ Une preuve pour chaque faille, des correctifs en diff, un rapport priorisé : en
 [English](README.md) · **Français** · [Español](README.es.md) · [Português (BR)](README.pt-BR.md) · [简体中文](README.zh-CN.md)
 
 [![Licence : MIT](https://img.shields.io/badge/Licence-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
 ![Assistants](https://img.shields.io/badge/assistants-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -15,7 +16,7 @@ Une preuve pour chaque faille, des correctifs en diff, un rapport priorisé : en
 
 Fonctionne avec **Claude Code, Cursor, Codex CLI, Gemini CLI, GitHub Copilot, Windsurf, Kiro** et 13 autres assistants. Demandez *« audite la sécurité de ce projet »* et vous obtenez un `SECURITY_AUDIT.md` : score sur 100, failles classées par sévérité et catégorie OWASP, preuve `fichier:ligne` pour chacune, correctif prêt à appliquer.
 
-> 📄 Exemple de rapport : [exemples/SECURITY_AUDIT.md](exemples/SECURITY_AUDIT.md)
+> 📄 Exemple de rapport, généré par le skill sur une application volontairement vulnérable couvrant les 12 stacks : [examples/SECURITY_AUDIT.md](examples/SECURITY_AUDIT.md) (en anglais ; vos rapports sont rédigés dans la langue de votre demande).
 
 ## Ce que le skill vous apporte
 
@@ -40,7 +41,7 @@ Fonctionne avec **Claude Code, Cursor, Codex CLI, Gemini CLI, GitHub Copilot, Wi
 | Backends | PHP natif, Laravel, Node.js (Express, Fastify, Koa, Hono, NestJS), Next.js, Flask, FastAPI, Django, Go (net/http, Gin, Echo, Fiber, Chi) |
 | Partout | secrets et `.env` commités, historique git, dépendances vulnérables (`bun audit`, `npm audit`, `composer audit`, `pip-audit`, `govulncheck`), absence de rate limiting |
 
-Le stack est détecté automatiquement et **seules les checklists utiles sont chargées** (un projet Laravel + MySQL charge `commun`, `php-mysql`, `laravel` et `mysql`).
+Le stack est détecté automatiquement et **seules les checklists utiles sont chargées** (un projet Laravel + MySQL charge `common`, `php-mysql`, `laravel` et `mysql`).
 
 <details>
 <summary><b>Ce qui est vérifié en détail</b></summary>
@@ -170,9 +171,9 @@ bash $S/grep_patterns.sh . nextjs,supabase    # fichier:ligne:pattern:sévérit�
 ```
 skills/backend-security-audit/
 ├── SKILL.md              # workflow et règles (lu par l'assistant)
-├── checklists/           # commun + une checklist par stack (12)
+├── checklists/           # common + une checklist par stack (12)
 ├── scripts/              # detect_stack.sh, find_secrets.sh, grep_patterns.sh, scan_rls.sql, scan_mysql.sql
-└── templates/rapport.md  # modèle de rapport
+└── templates/report.md  # modèle de rapport
 bin/cli.mjs               # installeur npx / bunx / pnpm dlx (sans dépendance)
 install.sh                # installeur bash (curl | bash)
 tests/
@@ -192,7 +193,7 @@ C'est une analyse statique assistée par IA, pas un test d'intrusion. Elle ne re
 
 ## Contribuer
 
-Les PR sont bienvenues : nouveaux motifs (avec un cas dans la fixture et le test), nouvelles checklists (Rails, Spring, ASP.NET, MongoDB…), moins de faux positifs, **traductions**. Lancez `bash tests/run_tests.sh && bash tests/test_cli.sh` avant d'ouvrir une PR.
+Les PR sont bienvenues : nouveaux motifs (avec un cas dans la fixture et le test), nouvelles checklists (Rails, Spring, ASP.NET, MongoDB…), moins de faux positifs, **traductions**. Voir [CONTRIBUTING.md](CONTRIBUTING.md) (en anglais). Pour signaler une faille dans le skill lui-même : [SECURITY.md](SECURITY.md).
 
 ## Licence
 

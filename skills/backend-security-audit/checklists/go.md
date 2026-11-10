@@ -1,8 +1,8 @@
-# Checklist Go (net/http, Gin, Echo, Fiber, Chi)
+# Go checklist (net/http, Gin, Echo, Fiber, Chi)
 
-Fichiers à lire en priorité : `main.go`, `cmd/`, `internal/handler*`, `internal/middleware*`, `routes*.go`, `*repository*.go` / `*store*.go` (SQL), `config*.go`, `go.mod`.
+Files to read first: `main.go`, `cmd/`, `internal/handler*`, `internal/middleware*`, `routes*.go`, `*repository*.go` / `*store*.go` (SQL), `config*.go`, `go.mod`.
 
-## G1. Injection SQL — Critique (A03)
+## G1. SQL injection — Critical (A03)
 ```go
 // ❌
 q := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
@@ -11,80 +11,80 @@ db.Query("SELECT * FROM users WHERE id = " + id)
 gormDB.Where(fmt.Sprintf("name = '%s'", name)).Find(&users)
 gormDB.Raw("SELECT * FROM t WHERE x = " + x).Scan(&r)
 // ✅
-rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE email = $1", email) // ? pour MySQL
+rows, err := db.QueryContext(ctx, "SELECT * FROM users WHERE email = $1", email) // ? for MySQL
 gormDB.Where("name = ?", name).Find(&users)
 ```
-- `ORDER BY` / noms de colonnes dynamiques : liste blanche (`map[string]string`).
-- sqlx `In`/`Named` : OK ; `sqlx.Rebind` sur une chaîne construite : vérifier.
+- Dynamic `ORDER BY` / column names: allowlist (`map[string]string`).
+- sqlx `In`/`Named`: OK; `sqlx.Rebind` on a built string: verify.
 
-## G2. Authentification / autorisation — Critique (A01)
-- Routes montées hors du groupe protégé (`r.GET("/admin/users", h)` au lieu de `admin := r.Group("/admin", AuthMiddleware())`).
-- IDOR : `id := c.Param("id")` puis lecture sans `AND user_id = $2`.
+## G2. Authentication / authorization — Critical (A01)
+- Routes mounted outside the protected group (`r.GET("/admin/users", h)` instead of `admin := r.Group("/admin", AuthMiddleware())`).
+- IDOR: `id := c.Param("id")` then a read without `AND user_id = $2`.
 ```go
 // ✅
 userID := c.MustGet("userID").(string)
 err := db.QueryRowContext(ctx, "SELECT ... FROM invoices WHERE id = $1 AND user_id = $2", c.Param("id"), userID).Scan(...)
 ```
-- Middleware qui écrit une erreur mais oublie `return` / `c.Abort()` → le handler s'exécute quand même (Critique).
+- Middleware that writes an error but forgets `return` / `c.Abort()` → the handler runs anyway (Critical).
 ```go
 // ❌
-if token == "" { http.Error(w, "unauthorized", 401) }   // pas de return
+if token == "" { http.Error(w, "unauthorized", 401) }   // no return
 next.ServeHTTP(w, r)
 ```
 
-## G3. JWT — Critique (A07)
+## G3. JWT — Critical (A07)
 ```go
-// ❌ algorithme non vérifié / secret en dur
+// ❌ algorithm not verified / hardcoded secret
 token, _ := jwt.Parse(s, func(t *jwt.Token) (interface{}, error) { return []byte("secret"), nil })
 // ✅
 token, err := jwt.Parse(s, func(t *jwt.Token) (interface{}, error) {
-    if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok { return nil, fmt.Errorf("alg inattendu") }
+    if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok { return nil, fmt.Errorf("unexpected alg") }
     return []byte(os.Getenv("JWT_SECRET")), nil
 }, jwt.WithValidMethods([]string{"HS256"}))
 if err != nil || !token.Valid { /* 401 */ }
 ```
-- `jwt.UnsafeAllowNoneSignatureType`, erreur de `Parse` ignorée (`_`) → Critique.
+- `jwt.UnsafeAllowNoneSignatureType`, `Parse` error ignored (`_`) → Critical.
 
-## G4. Injection de commande — Critique (A03)
-`exec.Command("sh", "-c", "convert " + name)` → passer les arguments séparément : `exec.Command("convert", name, "out.png")`.
+## G4. Command injection — Critical (A03)
+`exec.Command("sh", "-c", "convert " + name)` → pass arguments separately: `exec.Command("convert", name, "out.png")`.
 
-## G5. Path traversal — Haute (A01)
+## G5. Path traversal — High (A01)
 ```go
 // ❌
 http.ServeFile(w, r, filepath.Join("uploads", r.URL.Query().Get("f")))
 // ✅ (Go ≥ 1.24)
 root, _ := os.OpenRoot("uploads"); f, err := root.Open(name)
-// ou : filepath.Clean + vérifier strings.HasPrefix(abs, baseAbs+string(os.PathSeparator))
+// or: filepath.Clean + check strings.HasPrefix(abs, baseAbs+string(os.PathSeparator))
 ```
-- `c.File(c.Param("path"))`, `c.SaveUploadedFile(file, "uploads/"+file.Filename)` → Haute.
+- `c.File(c.Param("path"))`, `c.SaveUploadedFile(file, "uploads/"+file.Filename)` → High.
 
-## G6. XSS / templates — Moyenne (A03)
-`text/template` utilisé pour du HTML (pas d'échappement) ; `template.HTML(userInput)` ; `w.Write([]byte("<p>" + name))`.
+## G6. XSS / templates — Medium (A03)
+`text/template` used for HTML (no escaping); `template.HTML(userInput)`; `w.Write([]byte("<p>" + name))`.
 
-## G7. SSRF — Haute (A10)
-`http.Get(r.URL.Query().Get("url"))` → liste blanche de domaines, refuser les IP privées, `CheckRedirect`.
+## G7. SSRF — High (A10)
+`http.Get(r.URL.Query().Get("url"))` → domain allowlist, reject private IPs, `CheckRedirect`.
 
-## G8. TLS et serveur HTTP — Moyenne (A05)
-- `InsecureSkipVerify: true` → Moyenne.
-- `http.ListenAndServe(":8080", mux)` sans `ReadHeaderTimeout` → Slowloris (Basse) :
+## G8. TLS and HTTP server — Medium (A05)
+- `InsecureSkipVerify: true` → Medium.
+- `http.ListenAndServe(":8080", mux)` without `ReadHeaderTimeout` → Slowloris (Low):
 ```go
 srv := &http.Server{Addr: ":8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second}
 ```
-- Taille de corps illimitée : `http.MaxBytesReader(w, r.Body, 1<<20)` (Basse).
+- Unbounded body size: `http.MaxBytesReader(w, r.Body, 1<<20)` (Low).
 
-## G9. CORS — Moyenne (A05)
-`AllowOrigins: []string{"*"}` avec `AllowCredentials: true`, ou origine reflétée (`w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))`) → Haute.
+## G9. CORS — Medium (A05)
+`AllowOrigins: []string{"*"}` with `AllowCredentials: true`, or a reflected origin (`w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))`) → High.
 
-## G10. Crypto — Moyenne à Haute (A02)
-- Mots de passe : `bcrypt.GenerateFromPassword` / `argon2id`, jamais `md5`/`sha1`/`sha256` simple (Haute).
-- Tokens : `crypto/rand`, jamais `math/rand` (Moyenne).
-- Comparaison de secrets : `subtle.ConstantTimeCompare` (Basse).
+## G10. Crypto — Medium to High (A02)
+- Passwords: `bcrypt.GenerateFromPassword` / `argon2id`, never plain `md5`/`sha1`/`sha256` (High).
+- Tokens: `crypto/rand`, never `math/rand` (Medium).
+- Secret comparison: `subtle.ConstantTimeCompare` (Low).
 
-## G11. Gestion d'erreurs et logs — Basse (A09)
-`c.JSON(500, gin.H{"error": err.Error()})` expose les erreurs SQL ; `gin.SetMode(gin.DebugMode)` en prod ; logs de tokens.
+## G11. Error handling and logs — Low (A09)
+`c.JSON(500, gin.H{"error": err.Error()})` exposes SQL errors; `gin.SetMode(gin.DebugMode)` in production; token logging.
 
-## G12. Dépendances — variable (A06)
-`govulncheck ./...` si disponible (lecture seule) ; sinon « à vérifier » avec la commande.
+## G12. Dependencies — variable (A06)
+`govulncheck ./...` if available (read-only); otherwise "to verify manually" with the command.
 
-## G13. Rate limiting — Moyenne (A07)
-Login/OTP sans `golang.org/x/time/rate`, `ulule/limiter`, `httprate` ou middleware équivalent.
+## G13. Rate limiting — Medium (A07)
+Login/OTP without `golang.org/x/time/rate`, `ulule/limiter`, `httprate`, or an equivalent middleware.
