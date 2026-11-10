@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-11-10
+
+### Added
+- Block-level checks (portable awk) for missing authorization that a single-line pattern cannot see:
+  - `go_auth_response_without_return`: Go handler or middleware that writes a 401/403 but neither returns nor aborts, so the request keeps going.
+  - `jwt_parse_error_ignored`: `token, _ := jwt.Parse(...)` in Go.
+  - `write_endpoint_without_auth` / `endpoint_without_auth`: FastAPI endpoints without an auth `Depends`/`Security`, Flask routes without `@login_required` (or similar); files with a global dependency or `before_request` are skipped.
+  - `cloud_function_without_auth`: Firebase `onCall` / `onRequest` whose body never checks `request.auth`, `verifyIdToken` or a webhook signature.
+  - `write_route_without_middleware`: Express write routes whose handler is passed directly (public routes such as `/login`, `/webhook` excluded).
+- `tests/fixtures/app-safe/`: correct versions of those patterns; the test suite asserts that none of the new checks fire on it.
+
 ## [2.0.0] - 2026-11-10
 
 ### Changed

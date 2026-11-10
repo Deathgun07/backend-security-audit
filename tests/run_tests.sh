@@ -110,6 +110,14 @@ EXPECTED=(
   '^laravel/app/Models/Product\.php:[0-9]+:empty_guarded'
   '^laravel/resources/views/product\.blade\.php:[0-9]+:blade_unescaped'
   '^laravel/routes/web\.php:[0-9]+:without_auth_middleware'
+  # Block-level checks (missing auth)
+  '^go/main\.go:22:go_auth_response_without_return:Critical'
+  '^go/main\.go:[0-9]+:jwt_parse_error_ignored:Critical'
+  '^fastapi/main\.py:13:write_endpoint_without_auth:High'
+  '^flask/app\.py:19:write_endpoint_without_auth:High'
+  '^firebase/functions/index\.js:5:cloud_function_without_auth:High'
+  '^firebase/functions/index\.js:9:cloud_function_without_auth:High'
+  '^express/server\.js:23:write_route_without_middleware:Medium'
   # FastAPI
   '^fastapi/main\.py:[0-9]+:jwt_unverified:Critical'
   '^fastapi/main\.py:[0-9]+:cors_wildcard_credentials:High'
@@ -120,6 +128,12 @@ ok=0; ko=0
 for e in "${EXPECTED[@]}"; do
   if grep -qE -- "$e" "$OUT"; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: $e"; fi
 done
+
+# False-positive guard: the block-level checks must stay silent on correct code
+FP="$(bash "$SCRIPTS/grep_patterns.sh" "$REPO/tests/fixtures/app-safe" 2>&1 | grep -E 'without_return|parse_error_ignored|without_auth|without_middleware')"
+if [ -z "$FP" ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: false positives on app-safe:"; echo "$FP"; fi
+# Express /login (public by nature) must not be flagged
+if grep -q '^express/server\.js:13:write_route_without_middleware' "$OUT"; then ko=$((ko+1)); echo "FAIL: /login flagged"; else ok=$((ok+1)); fi
 
 # No duplicate lines in the output
 if [ -z "$(grep -E '^[^ #].*:[0-9]+:[a-z0-9_]+:(Critical|High|Medium|Low|Info)$' "$OUT" | sort | uniq -d)" ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: duplicate lines in the output"; fi

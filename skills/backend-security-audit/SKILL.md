@@ -54,6 +54,7 @@ bash "$SKILL_DIR/scripts/grep_patterns.sh" "$TARGET" "<comma-separated stacks>"
 ```
 Format: `file:line:pattern:severity`. These are **leads**: triage them one by one (finding / false positive / to verify).
 `Info` lines (`api_route_to_check`, `server_action_to_check`…) are an inventory for step 4.
+Block-level labels (`go_auth_response_without_return`, `write_endpoint_without_auth`, `cloud_function_without_auth`, `write_route_without_middleware`) are heuristics: confirm by reading the handler and any global middleware / router dependency before reporting.
 
 Dependency audit, only if the tool is available (reads the lockfile):
 `bun audit` · `npm audit --omit=dev` · `composer audit` · `pip-audit -r requirements.txt` · `govulncheck ./...`.

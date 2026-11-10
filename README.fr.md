@@ -178,7 +178,8 @@ bin/cli.mjs               # installeur npx / bunx / pnpm dlx (sans dépendance)
 install.sh                # installeur bash (curl | bash)
 tests/
 ├── fixtures/app-vulnerable/   # application volontairement vulnérable couvrant les 12 stacks
-├── run_tests.sh               # scripts de détection (81 vérifications)
+├── fixtures/app-safe/         # code correct : garde-fou contre les faux positifs
+├── run_tests.sh               # scripts de détection (95 vérifications)
 └── test_cli.sh                # installeurs (23 vérifications)
 ```
 

@@ -253,6 +253,65 @@ chk fastapi High    "cors_wildcard_credentials"      'allow_origins\s*=\s*\[\s*[
 chk fastapi Critical "sql_fstring"                 "(execute|text|raw)\(\s*f['\"]"                                   "$PY"
 chk fastapi Info     "route_to_check"            '@(app|router)\.(get|post|put|patch|delete)\('                   "$PY"
 
+# ───────────── Block-level checks (awk, portable): missing auth that a single-line regex cannot see
+# files <find -name args...>: matching files, excluded directories pruned
+files() { find . \( -name node_modules -o -name vendor -o -name .git -o -name .next -o -name dist -o -name build -o -name venv -o -name .venv -o -name __pycache__ -o -name pb_data -o -name coverage -o -name .claude \) -prune -o -type f \( "$@" \) -print 2>/dev/null | sed 's|^\./||' | sort; }
+
+# Go: 401/403 response not followed by return / Abort → the handler keeps running
+if [[ "$STACKS" == *",go,"* ]]; then
+  files -name '*.go' | while IFS= read -r f; do
+    awk -v f="$f" '
+      pending && NF { t=$0; gsub(/^[ \t]+/, "", t)
+        if (t !~ /^(return|panic)/ && t !~ /Abort/) print f ":" pl ":go_auth_response_without_return:Critical"
+        pending=0 }
+      /(JSON|String|Status|XML|Error|WriteHeader)\(.*(401|403|StatusUnauthorized|StatusForbidden)/ && !/Abort|return/ { pending=1; pl=FNR }
+    ' "$f"
+  done
+  chk go Critical "jwt_parse_error_ignored" ',\s*_\s*:?=\s*jwt\.Parse' "$GO"
+fi
+
+# FastAPI / Flask: endpoint without an auth dependency / decorator
+if [[ "$STACKS" == *",fastapi,"* || "$STACKS" == *",flask,"* ]]; then
+  grep -rlE --include='*.py' --exclude-dir={venv,.venv,node_modules,__pycache__,.git} '@[A-Za-z_]+\.(get|post|put|patch|delete|route)\(' . 2>/dev/null | sed 's|^\./||' | sort | while IFS= read -r f; do
+    # A global dependency on the app/router protects every endpoint of the file
+    grep -qE '(FastAPI|APIRouter)\([^)]*dependencies\s*=|before_request' "$f" && continue
+    awk -v f="$f" '
+      function check(  low, write, auth) {
+        low = tolower(sig)
+        write = (deco ~ /\.(post|put|patch|delete)\(/ || deco ~ /methods[ \t]*=[^)]*(POST|PUT|PATCH|DELETE)/)
+        auth = (low ~ /(depends|security)\([^)]*(user|auth|token|current|verify|admin|session|principal|api_key)/ \
+             || deco ~ /login_required|jwt_required|auth_required|permission_required|roles_required|token_required|requires_auth|admin_required/)
+        if (!auth) print f ":" dl ":" (write ? "write_endpoint_without_auth:High" : "endpoint_without_auth:Info")
+        indec = 0; insig = 0; deco = ""; sig = ""
+      }
+      /^[ \t]*@[A-Za-z_]+\.(get|post|put|patch|delete|route)\(/ { if (!indec) { indec = 1; dl = FNR; deco = "" } deco = deco $0; next }
+      indec && !insig && /^[ \t]*@/ { deco = deco $0; next }
+      indec && !insig && /^[ \t]*(async[ \t]+)?def[ \t]/ { insig = 1; sig = $0; if ($0 ~ /\)[ \t]*(->[^:]*)?:[ \t]*(#.*)?$/) check(); next }
+      insig { sig = sig $0; if ($0 ~ /\)[ \t]*(->[^:]*)?:[ \t]*(#.*)?$/) check(); next }
+    ' "$f"
+  done
+fi
+
+# Firebase Cloud Functions: onCall / onRequest whose body never checks the caller
+if [[ "$STACKS" == *",firebase,"* ]]; then
+  grep -rlE --include='*.js' --include='*.ts' --include='*.mjs' --exclude-dir={node_modules,.git,dist,build,lib} '(onCall|onRequest)\s*\(' . 2>/dev/null | sed 's|^\./||' | sort | while IFS= read -r f; do
+    awk -v f="$f" '
+      function flush() {
+        if (start && body !~ /(request|req|context)\.auth|verifyIdToken|verifySessionCookie|constructEvent|[Ss]ignature|hmac|HMAC/)
+          print f ":" start ":cloud_function_without_auth:High"
+        start = 0; body = ""
+      }
+      /(onCall|onRequest)[ \t]*\(/ { flush(); start = FNR; body = $0; next }
+      start && /^(exports\.|export[ \t]|module\.exports)/ { flush(); next }
+      start { body = body "\n" $0 }
+      END { flush() }
+    ' "$f"
+  done
+fi
+
+# Express / Node: write route whose handler is passed directly, with no middleware in between
+chk node-express Medium "write_route_without_middleware" "(app|router)\.(post|put|patch|delete)\(\s*[\"'\`][^\"'\`]+[\"'\`]\s*,\s*(async\s+)?(\([^)]*\)\s*=>|function)" "$JS" "(login|signin|sign-in|signup|register|webhook|forgot|reset|callback|health)"
+
 # ───────────── Common: sensitive endpoints to check for rate limiting
 chk nextjs  Info "endpoint_auth_rate_limit" '(login|signin|sign-in|signup|reset[-_]?password|forgot|otp|verify|magic)' "$JS" '^[^:]*:[0-9]+:\s*(//|\*|import)' i
 chk php-mysql Info "endpoint_auth_rate_limit" '(login|connexion|reset[-_]?password|otp|mot_?de_?passe_oublie)' "$PHP" '' i
