@@ -1,0 +1,5 @@
+{
+  "name": "factures-demo",
+  "private": true,
+  "dependencies": { "next": "15.1.0", "@supabase/supabase-js": "2.45.0", "@supabase/ssr": "0.5.2" }
+}

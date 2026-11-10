@@ -1,0 +1,17 @@
+{
+  "name": "backend-security-audit",
+  "owner": {
+    "name": "Deathgun07"
+  },
+  "metadata": {
+    "description": "Skill Claude Code d'audit de sécurité backend en français."
+  },
+  "plugins": [
+    {
+      "name": "backend-security-audit",
+      "source": "./",
+      "description": "Audit de sécurité backend en lecture seule (Supabase, Firebase, PocketBase, MySQL, Next.js, Node/Express, PHP, Laravel, Flask, FastAPI, Django, Go) avec rapport SECURITY_AUDIT.md, preuves et correctifs en diff.",
+      "version": "1.1.0"
+    }
+  ]
+}

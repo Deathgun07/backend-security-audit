@@ -1,0 +1,6 @@
+.env
+.env.*
+!.env.example
+SECURITY_AUDIT*.md
+!exemples/SECURITY_AUDIT.md
+node_modules/
