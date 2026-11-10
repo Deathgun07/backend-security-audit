@@ -4,3 +4,6 @@
 SECURITY_AUDIT*.md
 !examples/SECURITY_AUDIT*.md
 node_modules/
+
+# Local development notes (not published)
+CLAUDE.md
