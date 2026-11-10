@@ -9,6 +9,7 @@ Evidence for every finding, fixes as diffs, a prioritized report: in minutes, wi
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/backend-security-audit?logo=npm)](https://www.npmjs.com/package/backend-security-audit)
 ![Assistants](https://img.shields.io/badge/assistants-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -68,22 +69,22 @@ Pick your assistant with `--ai` (or `--ai all`). Without `--ai`, the installer d
 
 **npm / Node ≥ 18**
 ```bash
-npx github:Deathgun07/backend-security-audit init --ai claude
+npx backend-security-audit init --ai claude
 ```
 
 **Bun**
 ```bash
-bunx github:Deathgun07/backend-security-audit init --ai claude
+bunx backend-security-audit init --ai claude
 ```
 
 **pnpm**
 ```bash
-pnpm dlx github:Deathgun07/backend-security-audit init --ai claude
+pnpm dlx backend-security-audit init --ai claude
 ```
 
 **Yarn (Berry)**
 ```bash
-yarn dlx -p backend-security-audit@github:Deathgun07/backend-security-audit backend-security-audit init --ai claude
+yarn dlx backend-security-audit init --ai claude
 ```
 
 **curl (no Node needed: bash + curl or wget)**
