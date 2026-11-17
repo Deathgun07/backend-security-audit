@@ -34,7 +34,7 @@ chk() {
   [[ "$STACKS" == *",$stack,"* ]] || return 0
   IFS=',' read -ra G <<< "$globs"
   if $HAS_RG; then
-    args=(-n --no-heading --hidden -e "$re")
+    args=(-n --no-heading --hidden --no-ignore -e "$re")
     [ "$ci" = i ] && args+=(-i)
     for d in "${EXCL_DIRS[@]}"; do args+=(-g "!$d/"); done
     for g in "${G[@]}"; do args+=(-g "$g"); done

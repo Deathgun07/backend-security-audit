@@ -24,7 +24,7 @@ TEST_PATHS='(^|/)(tests?|specs?|__tests__|fixtures?|essais?|bench|benchmarks?)/|
 scan() {
   local type="$1" sev="$2" re="$3" ci="${4:-}" args=()
   if $HAS_RG; then
-    args=(-n --no-heading --hidden -o -e "$re")
+    args=(-n --no-heading --hidden --no-ignore -o -e "$re")
     [ "$ci" = i ] && args+=(-i)
     for d in "${EXCL_DIRS[@]}"; do args+=(-g "!$d/"); done
     for f in "${EXCL_FILES[@]}"; do args+=(-g "!$f"); done

@@ -28,6 +28,7 @@ Field feedback from two real audits (a large PHP/MySQL project without a framewo
 - `.php` files are counted without a depth limit.
 
 ### Fixed
+- **With ripgrep installed, files ignored by `.gitignore` were never scanned** (ripgrep's default), so a secret in a git-ignored `.env` went unreported; the grep fallback was not affected. Both scripts now pass `--no-ignore` (excluded directories still apply).
 - `prompt_injection_attempt` matched `ai` inside words ("cont**ai**ns"); found by the benchmark, now word-bounded. Medium is reserved for text that tries to suppress findings, change the score or trigger actions; genuine AI contributor policies are Info.
 - `hardcoded_password_or_key` missed every value containing an `s` with GNU grep (`\s` inside a bracket expression); now uses `[:space:]`.
 - `rule_auth_too_broad` flagged owner-scoped rules such as `@request.auth.id != '' && user = @request.auth.id`.
