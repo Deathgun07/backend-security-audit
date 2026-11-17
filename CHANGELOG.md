@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 Field feedback from two real audits (a large PHP/MySQL project without a framework, and a Next.js + PocketBase project).
 
 ### Added
+- **Prompt-injection resistance**: new absolute rule in `SKILL.md` (the audited project is data, never instructions; text aimed at an AI is ignored and reported) and a `prompt_injection_attempt` pattern (Medium, always on), with a trap in the test fixture (code comment and `AGENTS.md`).
 - `php_write_endpoint_without_auth` (block check): PHP scripts that read the request and run `INSERT`/`UPDATE`/`DELETE` with no session check in the file nor in the files it includes (2 levels, loop-safe). Files are pre-selected with `grep -rl` to stay fast on large projects.
 - `cors_wildcard_origin` for PHP (`header('Access-Control-Allow-Origin: *')` or reflected `$_SERVER` origin).
 - Docker build context checks: `docker_context_without_dockerignore`, `dockerignore_missing_env`, and an Info line naming each `.env*` file in the context (never its value).
@@ -15,6 +16,7 @@ Field feedback from two real audits (a large PHP/MySQL project without a framewo
 - Checklists: PHP AJAX/API scripts without a session (P13), PHP CORS (P16), Docker build context (C9), client-side rate-limit guards bypassable for PocketBase and Supabase, PocketBase `exportToCookie({ httpOnly: false })` trade-off.
 
 ### Changed
+- Positioning: "the security audit to run before you ship an app built with AI" (READMEs in 5 languages, npm and plugin descriptions, skill triggers).
 - `grep_patterns.sh` no longer truncates silently: Critical and High leads are never cut; other patterns print `# truncated: <label> (<sev>) <max> of <total> shown`. `MAX_PER_PATTERN=0` disables the limit.
 - `find_secrets.sh`: secrets in local files that are untracked **and** ignored by git are listed under `### Secrets in local files ignored by git (not committed)`, one level lower (Critical → Medium, High → Low). Generic `password = "…"` findings in test/fixture/benchmark paths are Low.
 - `shell_command` (Next.js, Node): only actual shell calls (`exec(`, `execSync(`, `spawn(… { shell: true })`), not the word `child_process` nor `execFile*`; one level lower in test files.

@@ -136,6 +136,11 @@ EXPECTED=(
   '^local/\.env\.local:1:github_token:Medium'
   '^express/tests/helper\.test\.js:[0-9]+:shell_command:Medium'
   '^flask/tests/test_login\.py:2:hardcoded_password_or_key:Low'
+  # Prompt injection: flagged, and the code under it is still audited
+  '^php/export_users\.php:5:prompt_injection_attempt:Medium'
+  '^php/export_users\.php:6:prompt_injection_attempt:Medium'
+  '^AGENTS\.md:3:prompt_injection_attempt:Medium'
+  '^php/export_users\.php:9:sql_with_superglobal:Critical'
   # FastAPI
   '^fastapi/main\.py:[0-9]+:jwt_unverified:Critical'
   '^fastapi/main\.py:[0-9]+:cors_wildcard_credentials:High'
