@@ -10,6 +10,7 @@ Un skill en lecture seule pour les assistants IA de code : il trouve les failles
 [![Licence : MIT](https://img.shields.io/badge/Licence-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/backend-security-audit?logo=npm)](https://www.npmjs.com/package/backend-security-audit)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Deathgun07/backend-security-audit/badge)](https://scorecard.dev/viewer/?uri=github.com/Deathgun07/backend-security-audit)
 ![Assistants](https://img.shields.io/badge/assistants-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -93,6 +94,15 @@ yarn dlx backend-security-audit init --ai claude
 **curl (sans Node : bash + curl ou wget)**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Deathgun07/backend-security-audit/main/install.sh | bash -s -- --ai claude
+```
+
+**Vérifier avant d'exécuter.** Chaque version est construite par GitHub Actions à partir de ce dépôt : `SHA256SUMS` couvre `install.sh` et l'archive npm, et le paquet npm porte une [attestation de provenance](https://docs.npmjs.com/generating-provenance-statements) qui le relie au commit exact.
+```bash
+V=2.3.0
+curl -fsSLO https://github.com/Deathgun07/backend-security-audit/releases/download/v$V/install.sh
+curl -fsSLO https://github.com/Deathgun07/backend-security-audit/releases/download/v$V/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS && bash install.sh --ai claude --ref v$V   # macOS: shasum -a 256 -c
+npm audit signatures   # in a project that depends on the npm package: checks its provenance
 ```
 
 **Gestionnaire de plugins de Claude Code**

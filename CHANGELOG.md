@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-11-17
+
+Supply-chain trust: you should not have to take a security tool on faith.
+
+### Added
+- `release.yml`: on a version tag, GitHub Actions runs the tests, checks that the tag matches `package.json`, attaches `SHA256SUMS`, `install.sh` and the npm tarball to the GitHub release, and publishes to npm **with provenance** through npm Trusted Publishing (no npm token stored anywhere).
+- OpenSSF Scorecard workflow and badge; Dependabot for GitHub Actions.
+- README (5 languages): how to verify `install.sh` with `SHA256SUMS` and the npm provenance before running anything.
+
+### Changed
+- All GitHub Actions are pinned to full commit SHAs (checkout v7.0.1, setup-node v7.1.0) with read-only default permissions.
+
 ## [2.2.0] - 2026-11-17
 
 Field feedback from two real audits (a large PHP/MySQL project without a framework, and a Next.js + PocketBase project).

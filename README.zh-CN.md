@@ -10,6 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/Deathgun07/backend-security-audit/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/backend-security-audit?logo=npm)](https://www.npmjs.com/package/backend-security-audit)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Deathgun07/backend-security-audit/badge)](https://scorecard.dev/viewer/?uri=github.com/Deathgun07/backend-security-audit)
 ![Assistants](https://img.shields.io/badge/assistants-20-informational)
 ![Stacks](https://img.shields.io/badge/stacks-12-informational)
 
@@ -62,6 +63,15 @@ pnpm dlx backend-security-audit init --ai claude
 yarn dlx backend-security-audit init --ai claude
 # curl（无需 Node：bash + curl 或 wget）
 curl -fsSL https://raw.githubusercontent.com/Deathgun07/backend-security-audit/main/install.sh | bash -s -- --ai claude
+```
+
+**运行前先校验。** 每个版本都由 GitHub Actions 从本仓库构建：`SHA256SUMS` 覆盖 `install.sh` 和 npm 包，npm 包附带[来源证明（provenance）](https://docs.npmjs.com/generating-provenance-statements)，可追溯到确切的提交。
+```bash
+V=2.3.0
+curl -fsSLO https://github.com/Deathgun07/backend-security-audit/releases/download/v$V/install.sh
+curl -fsSLO https://github.com/Deathgun07/backend-security-audit/releases/download/v$V/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS && bash install.sh --ai claude --ref v$V   # macOS: shasum -a 256 -c
+npm audit signatures   # in a project that depends on the npm package: checks its provenance
 ```
 
 Claude Code 插件管理器：

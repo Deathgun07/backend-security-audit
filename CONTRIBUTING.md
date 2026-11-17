@@ -50,3 +50,12 @@ bash tests/run_tests.sh
 bash tests/test_cli.sh
 ```
 Keep the versions of `package.json`, `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` identical, and add an entry to `CHANGELOG.md`.
+
+## Releasing (maintainers)
+
+1. Bump the version in `package.json`, `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, and add a `CHANGELOG.md` entry.
+2. Merge to `main` and wait for CI to be green.
+3. Push the tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+`release.yml` then tests, attaches `SHA256SUMS` / `install.sh` / the npm tarball to the GitHub release, and publishes to npm with provenance (npm Trusted Publishing: the package's npm settings trust `.github/workflows/release.yml` of this repository). Nobody publishes from a laptop.
+

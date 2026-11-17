@@ -1,6 +1,6 @@
 {
   "name": "backend-security-audit",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "The security audit to run before you ship an app built with AI: a read-only skill for AI coding assistants (Claude Code, Cursor, Codex, Gemini CLI, Copilot…) covering Supabase, Firebase, PocketBase, MySQL, Next.js, Express, PHP, Laravel, Flask, FastAPI, Django and Go. Evidence for every finding, fixes as diffs, resistant to prompt injection.",
   "author": {
     "name": "Deathgun07"
