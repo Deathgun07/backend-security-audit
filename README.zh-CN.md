@@ -19,6 +19,8 @@
 
 > 📄 报告示例：由本技能在一个覆盖全部 12 个技术栈的故意存在漏洞的应用上生成：[examples/SECURITY_AUDIT.md](examples/SECURITY_AUDIT.md)（英文；你的报告会使用你提问的语言）。
 
+> 📊 **基准测试**：在 OWASP Juice Shop、OWASP NodeGoat、DVWA 和一个 Supabase 应用中，58 个已知漏洞找到 51 个（88%），73 个发现中只有 2 个误报。方法、标准答案、原始报告和漏掉的漏洞：[benchmark/](benchmark/README.md)（英文）。
+
 ## 它能为你带来什么
 
 - **发现通用扫描器遗漏的问题。** Supabase RLS 策略、Firebase Security Rules、PocketBase API rules、MySQL 账户、Next.js server actions：这些平台特有的漏洞正是大多数真实数据泄露的来源。

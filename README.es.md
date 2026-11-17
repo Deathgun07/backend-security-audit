@@ -19,6 +19,8 @@ Funciona con **Claude Code, Cursor, Codex CLI, Gemini CLI, GitHub Copilot, Winds
 
 > 📄 Informe de ejemplo, generado por el skill sobre una aplicación intencionadamente vulnerable que cubre los 12 stacks: [examples/SECURITY_AUDIT.md](examples/SECURITY_AUDIT.md) (en inglés; tus informes se redactan en el idioma de tu petición).
 
+> 📊 **Benchmark**: 51 de 58 vulnerabilidades conocidas encontradas (88 %) en OWASP Juice Shop, OWASP NodeGoat, DVWA y una app Supabase, con 2 falsos positivos de 73 hallazgos. Método, verdad de referencia, informes y lo que se escapó: [benchmark/](benchmark/README.md) (en inglés).
+
 ## Lo que te aporta
 
 - **Detecta lo que los escáneres genéricos no ven.** Políticas RLS de Supabase, Security Rules de Firebase, API rules de PocketBase, cuentas MySQL, server actions de Next.js: los fallos propios de cada plataforma, origen de la mayoría de fugas de datos reales.

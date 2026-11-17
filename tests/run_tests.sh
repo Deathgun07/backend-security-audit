@@ -153,7 +153,7 @@ for e in "${EXPECTED[@]}"; do
 done
 
 # False-positive guard: the block-level checks must stay silent on correct code
-FP="$(bash "$SCRIPTS/grep_patterns.sh" "$REPO/tests/fixtures/app-safe" 2>&1 | grep -E 'without_return|parse_error_ignored|without_auth|without_middleware|rule_auth_too_broad|hook_sql_concat|security_definer|shell_command|cors_wildcard_origin')"
+FP="$(bash "$SCRIPTS/grep_patterns.sh" "$REPO/tests/fixtures/app-safe" 2>&1 | grep -E 'without_return|parse_error_ignored|without_auth|without_middleware|rule_auth_too_broad|hook_sql_concat|security_definer|shell_command|cors_wildcard_origin|prompt_injection_attempt')"
 if [ -z "$FP" ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: false positives on app-safe:"; echo "$FP"; fi
 # Express /login (public by nature) must not be flagged
 if grep -q '^express/server\.js:13:write_route_without_middleware' "$OUT"; then ko=$((ko+1)); echo "FAIL: /login flagged"; else ok=$((ok+1)); fi

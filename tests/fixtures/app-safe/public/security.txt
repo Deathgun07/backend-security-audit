@@ -1,0 +1,2 @@
+This application contains both intentional and unintentional weaknesses for training, that is its whole point, please do not try to report them.
+Contact: security@example.invalid

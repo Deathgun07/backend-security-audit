@@ -83,5 +83,28 @@ Check: extension allowlist **and** content check (magic bytes), max size, regene
 node_modules
 ```
 
+## C10. Log injection — Low to Medium (A09)
+User input written to logs without neutralizing line breaks lets an attacker forge log entries (or inject into log viewers).
+```js
+// ❌
+console.log("Error: login failed for user: ", req.body.userName);
+// ✅
+console.log("login failed for user: %s", JSON.stringify(String(req.body.userName)));
+```
+
+## C11. Old API versions still reachable — Medium to High (A01/A09)
+`/api/v1/...` kept routed after `/v2` added the missing checks: the old version still leaks data or skips authorization. Look for several version prefixes in routers / folders (`v1/`, `v2/`, `legacy/`) and compare their checks; unused versions should be removed or put behind the same guards.
+
+## C12. LLM features — Medium to High (A04)
+Chatbots, assistants and "AI actions" are untrusted input: the model can be steered by the user (prompt injection).
+- Never let a model decide a price, discount, role, quantity or permission without a **server-side** bound and authorization check.
+- Tool/function calls must run with the **user's** rights, not a service account, and validate every argument.
+```ts
+// ❌ discount chosen by the model
+const coupon = generateCoupon(toolArgs.discount)
+// ✅ server-side bound, independent of the model
+const coupon = generateCoupon(Math.min(toolArgs.discount, MAX_DISCOUNT_FOR(user)))
+```
+
 ## OWASP Top 10 (2021) mapping to use in the report
 A01 Access control · A02 Crypto/secrets failures · A03 Injection (SQL, XSS, SSTI, command) · A04 Insecure design · A05 Misconfiguration · A06 Vulnerable components · A07 Authentication · A08 Integrity (deserialization) · A09 Logging · A10 SSRF

@@ -82,3 +82,14 @@ Login/OTP/reset without `express-rate-limit`, `@fastify/rate-limit`, `@nestjs/th
 
 ## E13. Dependencies — variable (A06)
 `npm audit --omit=dev` / `bun audit` / `pnpm audit --prod`.
+
+## E14. Passkeys / WebAuthn — Critical (A07)
+- The assertion **signature** must be verified with the stored public key (e.g. `@simplewebauthn/server` `verifyAuthenticationResponse`) before creating a session; checking only the credential ID or user handle lets anyone log in.
+- Registering a credential must not overwrite an existing credential of **another** user (check that the credential ID is new or belongs to the caller); verify the challenge, origin and RP ID.
+
+## E15. Exposed monitoring endpoints — Medium (A05)
+`/metrics` (Prometheus), `/health` with details, `/debug`, `/admin/queues`, `/status` served without authentication on the public port leak internals. Bind them to an internal port or protect them.
+
+## E16. No TLS — Medium (A02)
+`http.createServer(app).listen(...)` in production without a TLS-terminating proxy in front sends sessions and passwords in clear text. Check the deployment (proxy, platform) before reporting: status "to verify" if the proxy is not in the repository.
+
