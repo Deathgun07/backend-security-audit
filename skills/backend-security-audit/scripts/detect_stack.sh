@@ -10,6 +10,8 @@ ROOT="$(cd "$ROOT" 2>/dev/null && pwd)" || { echo '{"error":"directory not found
 # Directories ignored everywhere (dependencies, builds, data)
 PRUNE=( -name node_modules -o -name vendor -o -name .git -o -name .next -o -name dist -o -name build
         -o -name venv -o -name .venv -o -name __pycache__ -o -name pb_data -o -name coverage -o -name .claude )
+# Extra directories to skip (e.g. EXCLUDE_DIRS=archives,old,backup)
+if [ -n "${EXCLUDE_DIRS:-}" ]; then IFS=',' read -ra _extra <<< "$EXCLUDE_DIRS"; for _d in "${_extra[@]}"; do PRUNE+=( -o -name "$_d" ); done; fi
 
 # Finds files by name (depth 4), returns relative paths
 find_files() { find "$ROOT" -maxdepth 4 \( "${PRUNE[@]}" \) -prune -o -type f \( "$@" \) -print 2>/dev/null | sed "s|^$ROOT/||"; }
@@ -30,8 +32,11 @@ if any_contains '"next"\s*:' "${PKG[@]}" || [ -n "$(find_files -name 'next.confi
 fi
 
 # --- Supabase
-SUPA_DIR="$(find_dirs -name supabase | head -1)"
-if [ -n "$SUPA_DIR" ] || any_contains '@supabase/|supabase' "${PKG[@]}" "${PYREQ[@]}" "${COMP[@]}"; then
+# A bare "supabase" folder (e.g. lib/supabase/) is not enough: require a Supabase project or a client dependency
+SUPA_DIR="$(find_files -path '*supabase/config.toml' | head -1)"
+[ -n "$SUPA_DIR" ] || SUPA_DIR="$(find_dirs -path '*supabase/migrations' | head -1)"
+if [ -n "$SUPA_DIR" ] || any_contains '"@supabase/' "${PKG[@]}" || any_contains '^supabase([=<>~ \[]|$)' "${PYREQ[@]}" \
+   || any_contains '"supabase/' "${COMP[@]}"; then
   add supabase "${SUPA_DIR:-supabase dependency}"
 fi
 
@@ -42,7 +47,8 @@ if [ -n "$PB_DIR" ] || any_contains '"pocketbase"\s*:|pocketbase' "${PKG[@]}" "$
 fi
 
 # --- PHP / MySQL
-PHP_COUNT="$(find_files -name '*.php' | wc -l)"
+# No depth limit here: large PHP projects keep scripts deep in the tree
+PHP_COUNT="$(find "$ROOT" \( "${PRUNE[@]}" \) -prune -o -type f -name '*.php' -print 2>/dev/null | wc -l | tr -d ' ')"
 if [ "${#COMP[@]}" -gt 0 ] || [ "$PHP_COUNT" -gt 0 ]; then
   add php-mysql "composer.json=${#COMP[@]}, .php files=$PHP_COUNT"
 fi
@@ -112,11 +118,17 @@ join_by_comma() { local out="" x; for x in "$@"; do out+="${out:+, }$x"; done; p
 GIT=false; git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 && GIT=true
 GIT_ROOT="$($GIT && git -C "$ROOT" rev-parse --show-toplevel)"
 
+# Web root: the project is served as is by a web server, so files written here (report, .claude/) may be downloadable
+WEB_ROOT=false
+case "$ROOT/" in */htdocs/*|*/www/*|*/public_html/*|*/html/*) WEB_ROOT=true ;; esac
+if [ -f "$ROOT/index.php" ] && [ ! -d "$ROOT/public" ] && [ ! -f "$ROOT/artisan" ]; then WEB_ROOT=true; fi
+
 cat <<EOF
 {
   "root": "$ROOT",
   "git": $GIT,
   "git_root": "${GIT_ROOT}",
+  "web_root": $WEB_ROOT,
   "stacks": $(json_list "${STACKS[@]}"),
   "evidence": { $(join_by_comma "${INDICES[@]}") },
   "lockfiles": $(json_list "${LOCKS[@]}"),

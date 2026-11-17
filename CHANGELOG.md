@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-11-17
+
+Field feedback from two real audits (a large PHP/MySQL project without a framework, and a Next.js + PocketBase project).
+
+### Added
+- `php_write_endpoint_without_auth` (block check): PHP scripts that read the request and run `INSERT`/`UPDATE`/`DELETE` with no session check in the file nor in the files it includes (2 levels, loop-safe). Files are pre-selected with `grep -rl` to stay fast on large projects.
+- `cors_wildcard_origin` for PHP (`header('Access-Control-Allow-Origin: *')` or reflected `$_SERVER` origin).
+- Docker build context checks: `docker_context_without_dockerignore`, `dockerignore_missing_env`, and an Info line naming each `.env*` file in the context (never its value).
+- `detect_stack.sh`: `"web_root": true|false` (project served as is, e.g. `htdocs/`). The skill then warns that the report must not be written or deployed inside the site.
+- `EXCLUDE_DIRS` (extra directories to skip, read by the 3 scripts) and `NO_RG=1` (force the grep fallback).
+- Checklists: PHP AJAX/API scripts without a session (P13), PHP CORS (P16), Docker build context (C9), client-side rate-limit guards bypassable for PocketBase and Supabase, PocketBase `exportToCookie({ httpOnly: false })` trade-off.
+
+### Changed
+- `grep_patterns.sh` no longer truncates silently: Critical and High leads are never cut; other patterns print `# truncated: <label> (<sev>) <max> of <total> shown`. `MAX_PER_PATTERN=0` disables the limit.
+- `find_secrets.sh`: secrets in local files that are untracked **and** ignored by git are listed under `### Secrets in local files ignored by git (not committed)`, one level lower (Critical → Medium, High → Low). Generic `password = "…"` findings in test/fixture/benchmark paths are Low.
+- `shell_command` (Next.js, Node): only actual shell calls (`exec(`, `execSync(`, `spawn(… { shell: true })`), not the word `child_process` nor `execFile*`; one level lower in test files.
+- `hook_sql_concat`: concatenation of an UPPER_CASE constant with bound parameters is ignored; Medium in `pb_migrations/`.
+- PHP `endpoint_auth_rate_limit`: based on `password_verify(` and login/reset/OTP file names instead of the word "connexion" (which also means a database connection in French).
+- Supabase is detected only with `supabase/config.toml`, `supabase/migrations/` or a Supabase client dependency (not an empty `lib/supabase/` folder).
+- `.php` files are counted without a depth limit.
+
+### Fixed
+- `hardcoded_password_or_key` missed every value containing an `s` with GNU grep (`\s` inside a bracket expression); now uses `[:space:]`.
+- `rule_auth_too_broad` flagged owner-scoped rules such as `@request.auth.id != '' && user = @request.auth.id`.
+- SQL comment lines (`-- …`) are ignored by the `*.sql` patterns (e.g. `security_definer` in a comment).
+
 ## [2.1.0] - 2026-11-10
 
 ### Added

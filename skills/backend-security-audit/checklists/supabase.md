@@ -127,6 +127,8 @@ Same for `plan`, `credits`, `balance`, `is_verified`, `organization_id`.
 ## S11. `getSession()` on the server side — Medium (A07)
 `supabase.auth.getSession()` reads the cookie without revalidating the JWT. On the server side (route, server action, middleware) use `auth.getUser()` (or `getClaims()` with signature verification).
 
+- Same trap for brute force: a rate limit applied by an application route that the browser calls before `supabase.auth.signInWithPassword()` is bypassable, since the attacker calls the Auth API directly. Only the Supabase Auth limits (`supabase/config.toml` `[auth.rate_limit]`, dashboard) or a proxy count.
+
 ## S12. Edge Functions — Medium to High (A01/A07)
 - `verify_jwt = false` in `supabase/config.toml`: the function must then verify by itself (signed Stripe webhook, etc.).
 - Function using service_role without reading the calling user.

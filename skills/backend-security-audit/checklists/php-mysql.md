@@ -142,8 +142,30 @@ if (!isset($_SESSION['admin'])) header('Location: login.php');
 if (empty($_SESSION['admin'])) { header('Location: login.php'); exit; }
 ```
 
+- **AJAX / API scripts callable without a session** (`php_write_endpoint_without_auth`): files such as `backend/*.php`, `api/*.php`, `ajax/*.php` that read `$_POST`/`$_GET`/`php://input` and run `INSERT`/`UPDATE`/`DELETE` are reachable directly by URL, even if no page links to them. Confirm by following the `require`/`include` chain: a library included at the top (`require 'auth_lib.php'`) that checks `$_SESSION` and calls `exit` protects the script. User management, payments and cash-desk scripts without that guard are Critical.
+```php
+// ✅ first line of every backend script
+require __DIR__ . '/../auth.php';   // session_start(); if (empty($_SESSION['user_id'])) { http_response_code(401); exit; }
+```
+
 ## P14. Open redirect and headers — Low to Medium
 `header('Location: ' . $_GET['url'])`; missing `X-Frame-Options`, `X-Content-Type-Options`; `expose_php = On`.
 
 ## P15. Exposed files — Medium to High (A05)
 Accessible `phpinfo()`, `.git/` served by Apache, backups `*.sql`, `*.bak`, `config.php~` in the webroot, accessible `composer.json`/`vendor/`.
+
+## P16. CORS — Medium to High (A05)
+```php
+// ❌ any site can call the endpoint
+header('Access-Control-Allow-Origin: *');
+// ❌ High: reflected origin + cookies = any site reads the user's data
+header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+header('Access-Control-Allow-Credentials: true');
+// ✅ explicit allow-list
+$allowed = ['https://app.example.com'];
+if (in_array($_SERVER['HTTP_ORIGIN'] ?? '', $allowed, true)) {
+    header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+    header('Vary: Origin');
+}
+```
+- `*` on a script that reads the session: Medium (browsers do not send cookies with `*`, but the endpoint is exposed to any origin). Reflected origin with `Allow-Credentials: true`: High.

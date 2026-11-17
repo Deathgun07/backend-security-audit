@@ -131,6 +131,8 @@ Options (same for every installer): `--global` (home folder, all projects) · `-
 
 Restart your assistant after installing.
 
+> ⚠️ If your project folder is served as is by a web server (e.g. `htdocs/`, `www/`), never deploy the `.claude/` folder nor `SECURITY_AUDIT.md`: anyone could download the list of your vulnerabilities. The skill warns you when it detects this case.
+
 ## Usage
 
 From the root of the project to audit, ask your assistant:
@@ -180,7 +182,7 @@ install.sh                # bash installer (curl | bash)
 tests/
 ├── fixtures/app-vulnerable/   # intentionally vulnerable app covering all 12 stacks
 ├── fixtures/app-safe/         # correct code: guards against false positives
-├── run_tests.sh               # detection scripts (95 checks)
+├── run_tests.sh               # detection scripts (112 checks)
 └── test_cli.sh                # installers (23 checks)
 ```
 

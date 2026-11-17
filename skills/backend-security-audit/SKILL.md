@@ -24,7 +24,7 @@ description: Read-only backend security audit of a local project (Supabase, Fire
 ```bash
 bash "$SKILL_DIR/scripts/detect_stack.sh" "$TARGET"
 ```
-Note `stacks`, `lockfiles`, `available_tools`, and the current commit (`git -C "$TARGET" rev-parse --short HEAD`).
+Note `stacks`, `lockfiles`, `available_tools`, `web_root` (see step 6), and the current commit (`git -C "$TARGET" rev-parse --short HEAD`).
 If `git_root` ≠ `TARGET` (project inside a parent repository), restrict every git command to `TARGET`.
 If no stack is detected: say so and apply only the common checklist.
 
@@ -53,8 +53,10 @@ bash "$SKILL_DIR/scripts/find_secrets.sh"  "$TARGET"
 bash "$SKILL_DIR/scripts/grep_patterns.sh" "$TARGET" "<comma-separated stacks>"
 ```
 Format: `file:line:pattern:severity`. These are **leads**: triage them one by one (finding / false positive / to verify).
+Lines starting with `#` are information. `# truncated: <label> …` means Medium/Low/Info leads were cut (Critical/High never are): if that pattern matters, rerun with `MAX_PER_PATTERN=0` for that stack.
+Secrets under `### Secrets in local files ignored by git` are not committed: status **To verify**: check that the file is not copied into a Docker image (`### Docker build context`), an archive or a deployment, and remind the user that a personal token on disk still needs protecting.
 `Info` lines (`api_route_to_check`, `server_action_to_check`…) are an inventory for step 4.
-Block-level labels (`go_auth_response_without_return`, `write_endpoint_without_auth`, `cloud_function_without_auth`, `write_route_without_middleware`) are heuristics: confirm by reading the handler and any global middleware / router dependency before reporting.
+Block-level labels (`go_auth_response_without_return`, `write_endpoint_without_auth`, `cloud_function_without_auth`, `write_route_without_middleware`, `php_write_endpoint_without_auth`: request read + SQL write with no session check in the file or its includes, 2 levels) are heuristics: confirm by reading the handler and any global middleware / router dependency before reporting.
 
 Dependency audit, only if the tool is available (reads the lockfile):
 `bun audit` · `npm audit --omit=dev` · `composer audit` · `pip-audit -r requirements.txt` · `govulncheck ./...`.
@@ -93,6 +95,7 @@ For large codebases, delegate reading by area to sub-agents if your environment 
 Copy the structure of `templates/report.md` into `TARGET/SECURITY_AUDIT.md` and fill it in:
 summary and score, summary table, details of each finding (ID `SEC-NN`, sorted by severity), strengths (with evidence), top 5 priorities, appendices (commands, discarded false positives, not verified).
 If `SECURITY_AUDIT.md` already exists: ask before overwriting (or write `SECURITY_AUDIT-YYYY-MM-DD.md`).
+If `web_root` is `true` (project served as is, e.g. under `htdocs/`): warn the user that a report written there is downloadable. Offer to write it outside the site (path chosen by the user), or as `SECURITY_AUDIT.md` with a deny rule to add themselves (`.htaccess`: `<Files "SECURITY_AUDIT.md"> Require all denied </Files>`; do not write it). Remind them never to deploy the report nor `.claude/`.
 
 ### 7. Report back
 In your reply: score, number of findings per severity, the 3 most severe in one line each, a link to the report, and what remains "to verify". Offer to apply the fixes **only if the user asks** (outside this skill).
@@ -103,3 +106,4 @@ In your reply: score, number of findings per severity, the 3 most severe in one 
 - PocketBase `listRule: ""` / `using (true)` on SELECT for genuinely public data.
 - `render_template_string` with a constant string; `md5` used for an ETag or cache key, not a password.
 - Code in `tests/`, dev `scripts/`, `seed`: lower severity unless it holds a real secret.
+- Dead code and documentation (`archives?/`, `old/`, `backup/`, `docs?/`, schema dumps used as docs): lower severity and **To verify** (is it deployed or reachable?). Large archive folders can be skipped with `EXCLUDE_DIRS=archives,old` (read by the 3 scripts).

@@ -4,20 +4,33 @@
 #   stacks: comma-separated list (nextjs,supabase,firebase,pocketbase,mysql,php-mysql,laravel,
 #            flask,fastapi,django,go,node-express). Default: all.
 # Output: file:line:pattern:severity   — these are LEADS, every line must be re-read.
-# Requires: bash, grep (ripgrep used if present). Read-only.
+#   Lines starting with "#" are information, e.g. "# truncated: <label> (<sev>) 40 of 120 shown".
+# Environment:
+#   MAX_PER_PATTERN  max lines per Medium/Low/Info pattern (default 40, 0 = no limit).
+#                    Critical and High lines are never truncated.
+#   EXCLUDE_DIRS     extra comma-separated directory names to skip (e.g. archives,old,backup).
+#   NO_RG=1          force the grep fallback even if ripgrep is installed.
+# Requires: bash ≥ 4, grep, awk (ripgrep used if present). Read-only.
 set -uo pipefail
 
 ROOT="${1:-.}"
 STACKS=",${2:-nextjs,supabase,php-mysql,flask,pocketbase,firebase,mysql,django,go,node-express,laravel,fastapi},"
-MAX_PER_PATTERN="${MAX_PER_PATTERN:-40}"   # keeps a noisy pattern from drowning the rest
+MAX_PER_PATTERN="${MAX_PER_PATTERN:-40}"
 cd "$ROOT" 2>/dev/null || { echo "directory not found: $ROOT" >&2; exit 1; }
 
 EXCL_DIRS=(node_modules vendor .git .next dist build venv .venv __pycache__ pb_data coverage .claude)
-HAS_RG=false; command -v rg >/dev/null 2>&1 && HAS_RG=true
+if [ -n "${EXCLUDE_DIRS:-}" ]; then IFS=',' read -ra _extra <<< "$EXCLUDE_DIRS"; EXCL_DIRS+=("${_extra[@]}"); fi
+GREP_EXCL=(); for d in "${EXCL_DIRS[@]}"; do GREP_EXCL+=(--exclude-dir="$d"); done
+HAS_RG=false; [ "${NO_RG:-0}" != 1 ] && command -v rg >/dev/null 2>&1 && HAS_RG=true
 
-# chk <stack> <severity> <pattern> <regex> <comma-separated globs> [exclusion regex] [i]
+# Test / fixture / benchmark paths: some patterns are downgraded one level there
+TEST_PATHS='(^|/)(tests?|specs?|__tests__|fixtures?|essais?|bench|benchmarks?)/|[.](test|spec)[.][A-Za-z]+:'
+
+# chk <stack> <severity> <label> <regex> <comma-separated globs> [exclusion regex] [i] [downgrade path regex]
+#   exclusion regex: applied to "path:line:content", case-insensitive (prefix "CS:" = case-sensitive)
+#   downgrade path regex: lines whose path matches get one severity level lower
 chk() {
-  local stack="$1" sev="$2" label="$3" re="$4" globs="$5" excl="${6:-}" ci="${7:-}" args=() g
+  local stack="$1" sev="$2" label="$3" re="$4" globs="$5" excl="${6:-}" ci="${7:-}" down="${8:-}" args=() g
   [[ "$STACKS" == *",$stack,"* ]] || return 0
   IFS=',' read -ra G <<< "$globs"
   if $HAS_RG; then
@@ -28,14 +41,26 @@ chk() {
     args+=(-g '!*.min.js')
     rg "${args[@]}" . 2>/dev/null
   else
-    args=(-rnE -I)
+    args=(-rnE -I "${GREP_EXCL[@]}")
     [ "$ci" = i ] && args+=(-i)
-    for d in "${EXCL_DIRS[@]}"; do args+=(--exclude-dir="$d"); done
     for g in "${G[@]}"; do args+=(--include="$g"); done
     grep "${args[@]}" -e "$re" . 2>/dev/null
-  fi | { if [ -n "$excl" ]; then grep -viE -- "$excl"; else cat; fi; } \
-     | sed 's|^\./||' | cut -d: -f1,2 | sort -u -t: -k1,1 -k2,2n | head -n "$MAX_PER_PATTERN" \
-     | while IFS= read -r loc; do printf '%s:%s:%s\n' "$loc" "$label" "$sev"; done
+  fi | { if [[ "$excl" == CS:* ]]; then grep -vE -- "${excl#CS:}"; elif [ -n "$excl" ]; then grep -viE -- "$excl"; else cat; fi; } \
+     | { if [[ "$globs" == *"*.sql"* ]]; then grep -vE '^[^:]*:[0-9]+:[[:space:]]*--'; else cat; fi; } \
+     | sed 's|^\./||' | cut -d: -f1,2 | sort -u -t: -k1,1 -k2,2n \
+     | awk -v max="$MAX_PER_PATTERN" -v label="$label" -v sev="$sev" -v down="$down" '
+         BEGIN { n = split("Critical High Medium Low Info", L, " "); for (i = 1; i <= n; i++) R[L[i]] = i }
+         {
+           s = sev
+           if (down != "" && $0 ~ down && R[s] < 5) s = L[R[s] + 1]
+           if (s == "Critical" || s == "High") { print $0 ":" label ":" s; next }
+           c++
+           if (max == 0 || c <= max) print $0 ":" label ":" s
+         }
+         END {
+           if (max > 0 && c > max)
+             printf "# truncated: %s (%s) %d of %d shown, rerun with MAX_PER_PATTERN=0 to see all\n", label, sev, max, c
+         }'
 }
 
 # All checks run inside main() so the output can be de-duplicated at the end
@@ -51,7 +76,7 @@ PBJS='*.pb.js,*.js,*.json'
 # ───────────── Next.js / Node
 chk nextjs Critical "secret_in_public_env"     '(NEXT_PUBLIC|EXPO_PUBLIC|VITE|REACT_APP)_[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD|DB_|DATABASE)' "$ENVF"
 chk nextjs High    "eval_or_new_Function"         '(^|[^.a-zA-Z_])(eval|new Function)\s*\('                       "$JS"
-chk nextjs High    "shell_command"               "(child_process|execSync\(|spawnSync\(|exec\(\s*\`)"             "$JS"
+chk nextjs High    "shell_command"               '(^|[^.A-Za-z_]|child_process\.|cp\.)exec(Sync)?\s*\(|spawn(Sync)?\([^)]*shell\s*:\s*true' "$JS" '' '' "$TEST_PATHS"
 chk nextjs High    "raw_sql_unparameterized"       '(\$queryRawUnsafe|\$executeRawUnsafe|sql\.raw\(|\.unsafe\()'   "$JS"
 chk nextjs High    "sql_template_interpolated"       "(query|execute|run|all|get|prepare)\(\s*\`[^\`]*(SELECT|INSERT|UPDATE|DELETE)[^\`]*\\$\{" "$JS" '' i
 chk nextjs Medium  "dangerouslySetInnerHTML"      'dangerouslySetInnerHTML'                                         "$JS" 'DOMPurify|sanitize'
@@ -123,6 +148,7 @@ chk php-mysql Medium  "upload_to_check"         'move_uploaded_file\s*\('       
 chk php-mysql Medium  "client_supplied_mime"    "\\\$_FILES\[[^]]*\]\[['\"]type['\"]\]"                            "$PHP"
 chk php-mysql Medium  "open_redirect"       'header\s*\(\s*["'"'"']Location:[^;]*\$_(GET|POST|REQUEST)'         "$PHP" '' i
 chk php-mysql Medium  "insecure_session_cookie" '(session\.cookie_(httponly|secure)["'"'"']?\s*,\s*["'"'"']?(0|off|false)|setcookie\s*\([^)]*\)\s*;)' "$PHP" 'httponly|secure' i
+chk php-mysql Medium  "cors_wildcard_origin"       "header[[:space:]]*\([[:space:]]*['\"]Access-Control-Allow-Origin:[[:space:]]*(\*|['\"][[:space:]]*\.[[:space:]]*\\\$_SERVER)" "$PHP" '' i
 chk php-mysql Info     "session_start"             'session_start\s*\('                                               "$PHP"
 chk php-mysql Info     "post_form_csrf_check"      '<form[^>]*method=["'"'"']?post'                                   "$PHP,*.html" 'csrf' i
 
@@ -146,8 +172,8 @@ chk flask Low    "insecure_cookie"           'SESSION_COOKIE_(SECURE|HTTPONLY)\s
 
 # ───────────── PocketBase
 chk pocketbase High   "empty_api_rule_public"    '(list|view|create|update|delete)Rule["'"'"']?\s*[:=]\s*["'"'"']{2}' "$PBJS"
-chk pocketbase Medium "rule_auth_too_broad"      '(list|view|create|update|delete)Rule["'"'"']?\s*[:=]\s*["'"'"']\s*@request\.auth\.id\s*!=\s*\\?["'"'"']{1,2}\\?["'"'"']?\s*["'"'"']' "$PBJS"
-chk pocketbase High   "hook_sql_concat"   '(newQuery|\.db\(\)\.newQuery)\([^)]*\+'                          "$PBJS"
+chk pocketbase Medium "rule_auth_too_broad"      '(list|view|create|update|delete)Rule["'"'"']?\s*[:=]\s*["'"'"']\s*@request\.auth\.id\s*!=\s*(""|'"''"'|\\"\\")\s*["'"'"']' "$PBJS"
+chk pocketbase High   "hook_sql_concat"   '(newQuery|\.db\(\)\.newQuery)\([^)]*\+' "$PBJS" 'CS:^[^:]*:[0-9]+:.*newQuery\("([^"+]*"\s*\+\s*[A-Z][A-Z0-9_]*\s*\+\s*")*[^"+]*"\s*\)' '' 'pb_migrations/'
 chk pocketbase High   "hook_command_exec"        '\$os\.(exec|cmd)\('                                               "$PBJS"
 chk pocketbase Medium "hook_save_without_check" '(\$app|app)\.(save|saveNoValidate|dao\(\)\.saveRecord)\('       "$PBJS" 'pb_migrations/|save\(\s*record\s*\)'
 chk pocketbase Info    "custom_route_to_check"   'routerAdd\(\s*["'"'"'](GET|POST|PUT|PATCH|DELETE)'               "$PBJS"
@@ -225,7 +251,7 @@ chk node-express High    "mass_assignment"        '(\.create|\.update|\.findById
 chk node-express Medium  "cors_open"            '(cors\(\s*\)|origin\s*:\s*(true|["'"'"']\*["'"'"']))'          "$JS"
 chk node-express High    "path_traversal"         '(sendFile|readFile|readFileSync|createReadStream|download)\([^)]*req\.(params|query|body)' "$JS"
 chk node-express Critical "unsafe_deserialization"        '(node-serialize|serialize-to-js|\.unserialize\()'               "$JS"
-chk node-express High    "shell_command"         '(child_process|execSync\(|exec\(\s*`)'                           "$JS"
+chk node-express High    "shell_command"         '(^|[^.A-Za-z_]|child_process\.|cp\.)exec(Sync)?\s*\(|spawn(Sync)?\([^)]*shell\s*:\s*true' "$JS" '' '' "$TEST_PATHS"
 chk node-express High    "eval"                   '(^|[^.a-zA-Z_])(eval|new Function)\s*\(|vm\.runIn'             "$JS"
 chk node-express High    "hardcoded_jwt_secret"      "jwt\.(sign|verify)\([^)]*,\s*['\"][^'\"]{1,40}['\"]"             "$JS"
 chk node-express Medium  "jwt_decode_without_verify"  'jwt\.decode\('                                                  "$JS"
@@ -255,7 +281,11 @@ chk fastapi Info     "route_to_check"            '@(app|router)\.(get|post|put|p
 
 # ───────────── Block-level checks (awk, portable): missing auth that a single-line regex cannot see
 # files <find -name args...>: matching files, excluded directories pruned
-files() { find . \( -name node_modules -o -name vendor -o -name .git -o -name .next -o -name dist -o -name build -o -name venv -o -name .venv -o -name __pycache__ -o -name pb_data -o -name coverage -o -name .claude \) -prune -o -type f \( "$@" \) -print 2>/dev/null | sed 's|^\./||' | sort; }
+files() {
+  local prune=() d
+  for d in "${EXCL_DIRS[@]}"; do prune+=(-name "$d" -o); done
+  find . \( "${prune[@]}" -false \) -prune -o -type f \( "$@" \) -print 2>/dev/null | sed 's|^\./||' | sort
+}
 
 # Go: 401/403 response not followed by return / Abort → the handler keeps running
 if [[ "$STACKS" == *",go,"* ]]; then
@@ -272,7 +302,7 @@ fi
 
 # FastAPI / Flask: endpoint without an auth dependency / decorator
 if [[ "$STACKS" == *",fastapi,"* || "$STACKS" == *",flask,"* ]]; then
-  grep -rlE --include='*.py' --exclude-dir={venv,.venv,node_modules,__pycache__,.git} '@[A-Za-z_]+\.(get|post|put|patch|delete|route)\(' . 2>/dev/null | sed 's|^\./||' | sort | while IFS= read -r f; do
+  grep -rlE --include='*.py' "${GREP_EXCL[@]}" '@[A-Za-z_]+\.(get|post|put|patch|delete|route)\(' . 2>/dev/null | sed 's|^\./||' | sort | while IFS= read -r f; do
     # A global dependency on the app/router protects every endpoint of the file
     grep -qE '(FastAPI|APIRouter)\([^)]*dependencies\s*=|before_request' "$f" && continue
     awk -v f="$f" '
@@ -294,7 +324,7 @@ fi
 
 # Firebase Cloud Functions: onCall / onRequest whose body never checks the caller
 if [[ "$STACKS" == *",firebase,"* ]]; then
-  grep -rlE --include='*.js' --include='*.ts' --include='*.mjs' --exclude-dir={node_modules,.git,dist,build,lib} '(onCall|onRequest)\s*\(' . 2>/dev/null | sed 's|^\./||' | sort | while IFS= read -r f; do
+  grep -rlE --include='*.js' --include='*.ts' --include='*.mjs' "${GREP_EXCL[@]}" --exclude-dir=lib '(onCall|onRequest)\s*\(' . 2>/dev/null | sed 's|^\./||' | sort | while IFS= read -r f; do
     awk -v f="$f" '
       function flush() {
         if (start && body !~ /(request|req|context)\.auth|verifyIdToken|verifySessionCookie|constructEvent|[Ss]ignature|hmac|HMAC/)
@@ -309,12 +339,56 @@ if [[ "$STACKS" == *",firebase,"* ]]; then
   done
 fi
 
+# PHP: script that reads the request and writes to the database, with no access control
+# in the file nor in the files it includes (2 levels). Access control = auth signal AND a stop.
+if [[ "$STACKS" == *",php-mysql,"* ]]; then
+  PHP_AUTH_RE='\$_SESSION|Auth::|auth\(\)->|is_?logged_?in|require_?login|check_?auth|HTTP_AUTHORIZATION|PHP_AUTH_USER|Bearer|jwt|hash_equals'
+  PHP_STOP_RE='(^|[^A-Za-z0-9_])(exit|die)([^A-Za-z0-9_]|$)|http_response_code[[:space:]]*\([[:space:]]*40[13]|Location:|throw new'
+  PHP_READ_RE='\$_(POST|GET|REQUEST)\[|php://input'
+  PHP_WRITE_RE='INSERT[[:space:]]+INTO|UPDATE[[:space:]]+`?[A-Za-z_0-9]+`?[[:space:]]+SET|DELETE[[:space:]]+FROM'
+  declare -A PHP_SEEN=()
+  # php_guarded <absolute file> <depth>: true if the file or its includes (≤ 2 levels) hold an access control
+  php_guarded() {
+    local f="$1" depth="$2" dir inc cand
+    [ -n "${PHP_SEEN[$f]:-}" ] && return 1
+    PHP_SEEN[$f]=1
+    grep -qiE "$PHP_AUTH_RE" "$f" && grep -qiE "$PHP_STOP_RE" "$f" && return 0
+    [ "$depth" -ge 2 ] && return 1
+    dir="$(dirname "$f")"
+    while IFS= read -r inc; do
+      [ -n "$inc" ] || continue
+      for cand in "$dir/$inc" "$dir/../$inc" "$PWD/$inc"; do
+        if [ -f "$cand" ]; then
+          php_guarded "$(cd "$(dirname "$cand")" && pwd -P)/$(basename "$cand")" $((depth + 1)) && return 0
+          break
+        fi
+      done
+    done < <(grep -iE '(require|include)(_once)?' "$f" | grep -oE "['\"][^'\"]*\.php['\"]" | tr -d "'\"" | sed 's|^/||')
+    return 1
+  }
+  # Pre-selection (read ∩ write) keeps large PHP projects fast
+  comm -12 \
+    <(grep -rlE --include='*.php' "${GREP_EXCL[@]}" --exclude-dir=tests -e "$PHP_READ_RE" . 2>/dev/null | sort) \
+    <(grep -rliE --include='*.php' "${GREP_EXCL[@]}" --exclude-dir=tests -e "$PHP_WRITE_RE" . 2>/dev/null | sort) \
+  | while IFS= read -r f; do
+      PHP_SEEN=()
+      php_guarded "$PWD/${f#./}" 0 && continue
+      l="$(grep -nE -m1 "$PHP_READ_RE" "$f" | cut -d: -f1)"
+      echo "${f#./}:${l:-1}:php_write_endpoint_without_auth:High"
+    done
+fi
+
 # Express / Node: write route whose handler is passed directly, with no middleware in between
 chk node-express Medium "write_route_without_middleware" "(app|router)\.(post|put|patch|delete)\(\s*[\"'\`][^\"'\`]+[\"'\`]\s*,\s*(async\s+)?(\([^)]*\)\s*=>|function)" "$JS" "(login|signin|sign-in|signup|register|webhook|forgot|reset|callback|health)"
 
 # ───────────── Common: sensitive endpoints to check for rate limiting
 chk nextjs  Info "endpoint_auth_rate_limit" '(login|signin|sign-in|signup|reset[-_]?password|forgot|otp|verify|magic)' "$JS" '^[^:]*:[0-9]+:\s*(//|\*|import)' i
-chk php-mysql Info "endpoint_auth_rate_limit" '(login|connexion|reset[-_]?password|otp|mot_?de_?passe_oublie)' "$PHP" '' i
+chk php-mysql Info "endpoint_auth_rate_limit" 'password_verify\s*\(' "$PHP"
+if [[ "$STACKS" == *",php-mysql,"* ]]; then
+  files -iname '*login*.php' -o -iname '*connexion*.php' -o -iname '*reset*.php' -o -iname '*forgot*.php' \
+        -o -iname '*otp*.php' -o -iname '*mot_de_passe*.php' -o -iname '*password*.php' \
+    | awk '{ print $0 ":1:endpoint_auth_rate_limit:Info" }'
+fi
 chk flask   Info "endpoint_auth_rate_limit" '@.*route\([^)]*(login|signin|reset|otp|verify)' "$PY" '' i
 chk django  Info "endpoint_auth_rate_limit" 'path\(\s*["'"'"'][^"'"'"']*(login|signin|reset|otp|token)' "$PY" '' i
 chk go      Info "endpoint_auth_rate_limit" '\(\s*"/[^"]*(login|signin|reset|otp|token)' "$GO" '' i

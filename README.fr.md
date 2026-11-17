@@ -131,6 +131,8 @@ Options (identiques pour tous les installeurs) : `--global` (dossier personnel, 
 
 Relancez votre assistant après l'installation.
 
+> ⚠️ Si le dossier du projet est servi tel quel par un serveur web (par exemple `htdocs/`, `www/`), ne déployez jamais le dossier `.claude/` ni `SECURITY_AUDIT.md` : n'importe qui pourrait télécharger la liste de vos failles. Le skill vous prévient quand il détecte ce cas.
+
 ## Utilisation
 
 Depuis la racine du projet à auditer, demandez à votre assistant :
@@ -180,7 +182,7 @@ install.sh                # installeur bash (curl | bash)
 tests/
 ├── fixtures/app-vulnerable/   # application volontairement vulnérable couvrant les 12 stacks
 ├── fixtures/app-safe/         # code correct : garde-fou contre les faux positifs
-├── run_tests.sh               # scripts de détection (95 vérifications)
+├── run_tests.sh               # scripts de détection (112 vérifications)
 └── test_cli.sh                # installeurs (23 vérifications)
 ```
 

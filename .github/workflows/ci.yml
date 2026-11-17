@@ -46,6 +46,10 @@ jobs:
       - name: Detection scripts
         run: bash tests/run_tests.sh
 
+      - name: Detection scripts (grep fallback)
+        if: matrix.ripgrep
+        run: NO_RG=1 bash tests/run_tests.sh
+
       - name: Installers (npx CLI + install.sh)
         run: bash tests/test_cli.sh
 

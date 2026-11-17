@@ -18,6 +18,11 @@ cp -r "$REPO/tests/fixtures/app-vulnerable/." "$WORK/"
 git -C "$WORK" init -q && git -C "$WORK" add -A \
   && git -C "$WORK" -c user.name=test -c user.email=test@example.invalid commit -qm fixture
 
+# Local secret that is ignored by git and never committed (lower severity, separate heading)
+mkdir -p "$WORK/local" && echo ".env.local" > "$WORK/local/.gitignore"
+echo "GITHUB_TOKEN=ghp_""FAUXFAUXFAUXFAUXFAUXFAUXFAUXFAUXFAUX" > "$WORK/local/.env.local"
+git -C "$WORK" add local/.gitignore && git -C "$WORK" -c user.name=test -c user.email=test@example.invalid commit -qm "local ignore"
+
 OUT="$WORK/.sortie"
 { bash "$SCRIPTS/detect_stack.sh" "$WORK"; bash "$SCRIPTS/find_secrets.sh" "$WORK"; bash "$SCRIPTS/grep_patterns.sh" "$WORK"; } > "$OUT" 2>&1
 
@@ -118,6 +123,19 @@ EXPECTED=(
   '^firebase/functions/index\.js:5:cloud_function_without_auth:High'
   '^firebase/functions/index\.js:9:cloud_function_without_auth:High'
   '^express/server\.js:23:write_route_without_middleware:Medium'
+  # v2.2.0
+  '"web_root": false'
+  '^php/delete_user\.php:3:php_write_endpoint_without_auth:High'
+  '^php/api_profile\.php:2:cors_wildcard_origin:Medium'
+  '^php/login\.php:1:endpoint_auth_rate_limit:Info'
+  '^# truncated: session_start \(Info\) 40 of [0-9]+ shown, rerun with MAX_PER_PATTERN=0'
+  '^Dockerfile:3:docker_context_without_dockerignore:Medium'
+  '^docker-app/Dockerfile:3:dockerignore_missing_env:Medium'
+  '^\.env:0:env_file_in_docker_context:Info'
+  '^### Secrets in local files ignored by git \(not committed\)'
+  '^local/\.env\.local:1:github_token:Medium'
+  '^express/tests/helper\.test\.js:[0-9]+:shell_command:Medium'
+  '^flask/tests/test_login\.py:2:hardcoded_password_or_key:Low'
   # FastAPI
   '^fastapi/main\.py:[0-9]+:jwt_unverified:Critical'
   '^fastapi/main\.py:[0-9]+:cors_wildcard_credentials:High'
@@ -130,10 +148,25 @@ for e in "${EXPECTED[@]}"; do
 done
 
 # False-positive guard: the block-level checks must stay silent on correct code
-FP="$(bash "$SCRIPTS/grep_patterns.sh" "$REPO/tests/fixtures/app-safe" 2>&1 | grep -E 'without_return|parse_error_ignored|without_auth|without_middleware')"
+FP="$(bash "$SCRIPTS/grep_patterns.sh" "$REPO/tests/fixtures/app-safe" 2>&1 | grep -E 'without_return|parse_error_ignored|without_auth|without_middleware|rule_auth_too_broad|hook_sql_concat|security_definer|shell_command|cors_wildcard_origin')"
 if [ -z "$FP" ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: false positives on app-safe:"; echo "$FP"; fi
 # Express /login (public by nature) must not be flagged
 if grep -q '^express/server\.js:13:write_route_without_middleware' "$OUT"; then ko=$((ko+1)); echo "FAIL: /login flagged"; else ok=$((ok+1)); fi
+
+# Truncation never drops High lines (45 interpolated SQL strings in one file)
+n="$(grep -c '^php/report_queries\.php:[0-9]*:sql_string_interpolated:High$' "$OUT")"
+if [ "$n" -eq 45 ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: expected 45 High lines in report_queries.php, got $n"; fi
+# MAX_PER_PATTERN=0 means no limit
+ALL="$(MAX_PER_PATTERN=0 bash "$SCRIPTS/grep_patterns.sh" "$WORK" php-mysql 2>&1)"
+if ! grep -q '^# truncated' <<< "$ALL" && [ "$(grep -c ':session_start:Info$' <<< "$ALL")" -gt 40 ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: MAX_PER_PATTERN=0 still truncates"; fi
+# The local ignored secret must not be listed with the committed ones
+if grep -q '^local/\.env\.local:1:github_token:Critical' "$OUT"; then ko=$((ko+1)); echo "FAIL: ignored local secret still Critical"; else ok=$((ok+1)); fi
+
+# Stack detection edge cases
+D="$WORK/.detect"; mkdir -p "$D/htdocs/site" "$D/nextapp/lib/supabase"
+echo '<?php echo 1;' > "$D/htdocs/site/index.php"; echo '{"dependencies":{"next":"15.2.4"}}' > "$D/nextapp/package.json"
+if bash "$SCRIPTS/detect_stack.sh" "$D/htdocs/site" | grep -q '"web_root": true'; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: web_root not detected"; fi
+if bash "$SCRIPTS/detect_stack.sh" "$D/nextapp" | grep -q 'supabase'; then ko=$((ko+1)); echo "FAIL: empty lib/supabase/ detected as Supabase"; else ok=$((ok+1)); fi
 
 # No duplicate lines in the output
 if [ -z "$(grep -E '^[^ #].*:[0-9]+:[a-z0-9_]+:(Critical|High|Medium|Low|Info)$' "$OUT" | sort | uniq -d)" ]; then ok=$((ok+1)); else ko=$((ko+1)); echo "FAIL: duplicate lines in the output"; fi
@@ -141,6 +174,6 @@ if [ -z "$(grep -E '^[^ #].*:[0-9]+:[a-z0-9_]+:(Critical|High|Medium|Low|Info)$'
 # Secret values must never appear in the output
 if grep -q 'FAUXFAUX' "$OUT"; then ko=$((ko+1)); echo "FAIL: a secret value appears in the output"; else ok=$((ok+1)); fi
 
-echo "$ok passed, $ko failed"
+echo "$ok passed, $ko failed${NO_RG:+ (NO_RG=$NO_RG)}"
 [ "${VERBOSE:-0}" = 1 ] && cat "$OUT"
 [ "$ko" -eq 0 ]

@@ -74,6 +74,8 @@ routerAdd("POST", "/api/admin/credit", (e) => { /* ... */ }, $apis.requireSuperu
 - `/_/` interface publicly exposed without IP restriction, superuser with a weak / default password in a committed init script.
 - Permissive `authRule`, `passwordAuth.enabled` with `minPasswordLength` < 8, OTP without a limit.
 - Rate limiting (Settings → Rate limits, PB ≥ 0.23): not visible in the repo → "to verify manually".
+- **Client-side guard is bypassable**: a rate limit enforced by an application route that the browser calls *before* `pb.collection('users').authWithPassword()` (e.g. `/api/auth/guard`) does not protect anything: an attacker calls PocketBase directly. Only PocketBase's own limit (Settings → Rate limits, `*:auth` rule) or a proxy in front of PocketBase counts.
+- `pb.authStore.exportToCookie({ httpOnly: false })`: documented PocketBase pattern for SSR, but the token stays readable by JavaScript if an XSS exists. Status **to verify**, explain the trade-off (strict CSP, short token duration, `httpOnly: true` when the client SDK does not need the cookie) rather than reporting it as a plain error.
 - Auth token stored in `localStorage` (SDK default) + XSS = session theft: mention if XSS is found.
 
 ## PB7. Files — Medium (A01)

@@ -73,6 +73,15 @@ Check: extension allowlist **and** content check (magic bytes), max size, regene
 - DB ports publicly exposed in `docker-compose.yml` (`"5432:5432"`, `"3306:3306"`, `"8090:8090"` without a proxy) → prefer `127.0.0.1:5432:5432`.
 - Default passwords (`POSTGRES_PASSWORD: postgres`, `root/root`).
 - Container run as root without need.
+- **Build context ships local secrets** (`docker_context_without_dockerignore`, `dockerignore_missing_env`): a `Dockerfile` with `COPY . .` / `ADD . .` and no `.dockerignore` (or one that does not exclude `.env`) sends `.env*`, `.git` and `node_modules` into the build context and into the layers of the stage that copies them. A multi-stage build that only copies the build output into the final image limits the risk, but the builder layers and the build cache still contain the secrets.
+```dockerfile
+# .dockerignore
+.env
+.env.*
+!.env.example
+.git
+node_modules
+```
 
 ## OWASP Top 10 (2021) mapping to use in the report
 A01 Access control · A02 Crypto/secrets failures · A03 Injection (SQL, XSS, SSTI, command) · A04 Insecure design · A05 Misconfiguration · A06 Vulnerable components · A07 Authentication · A08 Integrity (deserialization) · A09 Logging · A10 SSRF

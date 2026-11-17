@@ -71,6 +71,8 @@ Valores de `--ai`: `claude` · `cursor` · `codex` · `gemini` · `copilot` · `
 
 Opções: `--global` (pasta pessoal, todos os projetos) · `--force` (atualizar) · `--dry-run` · `list` · `uninstall`. Reinicie o assistente depois de instalar.
 
+> ⚠️ Se a pasta do projeto é servida diretamente por um servidor web (por exemplo `htdocs/`, `www/`), nunca publique a pasta `.claude/` nem o `SECURITY_AUDIT.md`: qualquer pessoa poderia baixar a lista das suas vulnerabilidades. O skill avisa quando detecta esse caso.
+
 ## Uso
 
 Na raiz do projeto, peça ao seu assistente:

@@ -71,6 +71,8 @@ Valores de `--ai`: `claude` · `cursor` · `codex` · `gemini` · `copilot` · `
 
 Opciones: `--global` (carpeta personal, todos los proyectos) · `--force` (actualizar) · `--dry-run` · `list` · `uninstall`. Reinicia tu asistente después de instalar.
 
+> ⚠️ Si la carpeta del proyecto la sirve tal cual un servidor web (por ejemplo `htdocs/`, `www/`), no despliegues nunca la carpeta `.claude/` ni `SECURITY_AUDIT.md`: cualquiera podría descargar la lista de tus vulnerabilidades. El skill te avisa cuando detecta este caso.
+
 ## Uso
 
 Desde la raíz del proyecto, pide a tu asistente:
